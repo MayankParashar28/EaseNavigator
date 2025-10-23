@@ -1,66 +1,121 @@
-# ⚡ EaseNavigator – AI-Powered EV Trip Companion
+# ⚡ EaseNavigator – AI-Powered EV Route Planner
 
-**EaseNavigator** is an intelligent Electric Vehicle (EV) trip planner that helps users drive smarter by predicting energy consumption, optimizing routes, and suggesting charging stops — all powered by AI and real-time environmental data.  
-Built to make EV journeys more efficient, stress-free, and sustainable. 🌱⚙️
+> **Smart, sustainable, and data-driven travel for electric vehicle users.**
+
+EaseNavigator is an intelligent route planner built for electric vehicle (EV) users.  
+It combines real-time data, smart energy predictions, and AI-powered optimization to plan the most efficient and eco-friendly trip possible — while keeping users informed about charging stations, traffic, and environmental conditions along the way.
 
 ---
 
 ## 🚀 Features
 
-- 🚗 **Smart Route Optimization** – AI-enhanced routing with Google Maps integration.  
-- 🔋 **Battery Prediction Model** – Estimates battery usage based on speed, terrain, temperature, and more.  
-- ⚡ **Charging Station Finder** – Displays available stations near your route using Open Charge Map API.  
-- ☁️ **Weather & Air Quality Insights** – Integrates live data to adjust route and energy predictions.  
-- 🌍 **Real-Time Traffic Awareness** – Detects traffic congestion and reroutes dynamically.  
-- 💾 **Trip History & Preferences** – Saves user journeys for quick re-planning.  
-- 🧠 **AI-Ready Architecture** – Built to integrate deep learning range-prediction models.  
-- 🧭 **Current Location Tracking** – Allows planning directly from the user’s GPS coordinates.  
+### 🔋 Smart Trip Planning
+- Enter your **origin**, **destination**, and **current battery percentage**.
+- Select your **EV model** to get accurate predictions based on real efficiency data.
+- Get the **best route options** with distance, time, estimated energy use, and recharging stops.
+
+### 🧭 Live Location Support
+- Instantly detect your **current location** using geolocation.
+- Automatically set your origin without typing your address.
+
+### ⚡ Real-Time Data Integration
+- Fetch **real-time EV charging stations** along your route using OpenChargeMap API.
+- Integrated structure for **live traffic**, **weather**, and **road conditions** (future-ready setup).
+
+### 🧠 AI & Predictive Intelligence
+- Predicts **battery consumption** using model-specific efficiency data.
+- Built for future **machine learning integration** to improve range estimation and route optimization.
+
+### 📚 Trip History & Analytics
+- Every trip is automatically saved to your **Supabase** account.
+- View, replan, or analyze past trips directly from the dashboard.
+
+### ⚙️ User Preferences
+- Save your preferred EV model and default settings.
+- Adjust **battery buffer** and auto-fill defaults for quicker planning.
 
 ---
 
-## 🧰 Tech Stack
+## 🧩 Tech Stack
 
-| Layer | Technology |
-|-------|-------------|
-| **Frontend** | React + TypeScript + Tailwind CSS |
-| **Backend** | Flask (for ML integration) / Supabase |
-| **Database & Auth** | Supabase |
-| **APIs Used** | Google Maps, OpenWeatherMap, OpenChargeMap, Air Quality API |
-| **Hosting** | Vercel / Render / GitHub Pages |
+| Area | Technology | Description |
+|------|-------------|-------------|
+| Frontend | **React + TypeScript** | Modular, scalable, and type-safe UI |
+| Backend & Database | **Supabase** | Auth, user data, and trip storage |
+| Styling | **Tailwind CSS** | Modern responsive design |
+| Icons | **Lucide React** | Lightweight vector icons |
+| Build Tool | **Vite** | Fast bundler and dev server |
 
 ---
 
-## 🧩 Project Structure
+## 🌍 APIs & Integrations
 
-ease-navigator/
+| API / Service | Purpose | Type |
+|----------------|----------|------|
+| **OpenStreetMap (Nominatim)** | Converts place names to coordinates | Geocoding |
+| **OSRM (Open Source Routing Machine)** | Provides optimized driving routes | Routing |
+| **OpenChargeMap** | Finds nearby charging stations | EV Charging API |
+| **Supabase** | Stores trips, preferences, and user auth | Backend |
+| *(Optional)* OpenRoute / TomTom APIs | For live traffic and travel times | Traffic (future-ready) |
+
+---
+
+## 🧱 Project Structure
+
+EaseNavigator/
 │
 ├── src/
 │   ├── components/
-│   │   ├── TripPlanner.tsx
-│   │   ├── TripResults.tsx
-│   │   ├── UserPreferences.tsx
-│   │   └── TripHistory.tsx
+│   │   ├── TripPlanner.tsx        # Main trip planning component
+│   │   ├── TripResults.tsx        # Displays optimized routes
+│   │   ├── TripHistory.tsx        # Past trip records
+│   │   ├── UserPreferences.tsx    # Settings for EV model & defaults
+│   │
 │   ├── contexts/
+│   │   └── AuthContext.tsx        # Supabase user auth context
+│   │
 │   ├── lib/
-│   │   ├── supabase.ts
-│   │   └── apiUtils.ts
-│   └── App.tsx
+│   │   ├── supabase.ts            # DB and auth functions
+│   │   └── apiConfig.ts           # API configuration and keys
+│   │
+│   ├── App.tsx                    # App entry point
+│   ├── main.tsx                   # React root
+│   └── index.css                  # Global styles
 │
 ├── public/
-│   └── index.html
+│   └── favicon.ico
 │
-├── .env.example
-├── package.json
-├── tsconfig.json
-├── vite.config.ts
-└── README.md
+├── .env                           # Environment variables
+├── package.json                   # Dependencies
+└── README.md                      # Documentation
 
 
----
 
-## ⚙️ Setup Instructions
+⚙️ How It Works
+	1.	User Input:
+The user provides origin, destination, EV model, and battery level.
+	2.	Data Fetching:
+	•	Location geocoding via OpenStreetMap
+	•	Route calculation using OSRM
+	•	Charging station data from OpenChargeMap
+	3.	Computation:
+	•	Estimates battery consumption and charging needs
+	•	Calculates distance, duration, cost, and energy use
+	4.	Display:
+	•	Presents optimized routes with detailed info
+	•	Saves trip data for analytics and history
 
-### 1️⃣ Clone the Repository
-```bash
-git clone https://github.com/<your-username>/ease-navigator.git
-cd ease-navigator
+
+💻 Installation
+# Clone the repo
+git clone https://github.com/<your-username>/EaseNavigator.git
+
+# Navigate to the project folder
+cd EaseNavigator
+
+# Install dependencies
+npm install
+
+# Run the app
+npm run dev
+
