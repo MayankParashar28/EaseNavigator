@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase, EVModel, getUserPreferences, upsertUserPreferences } from '../lib/supabase';
+import { EV_MODELS, type EVModel, getUserPreferences, upsertUserPreferences } from '../lib/localStorage';
 
 interface Props {
   onClose?: () => void;
@@ -17,11 +17,10 @@ export default function UserPreferences({ onClose }: Props) {
   });
 
   useEffect(() => {
-    const load = async () => {
-      const { data } = await supabase.from('ev_models').select('*').order('manufacturer, model_name');
-      setEvModels(data || []);
+    const load = () => {
+      setEvModels(EV_MODELS);
       if (!user) return;
-      const prefs = await getUserPreferences(user.id);
+      const prefs = getUserPreferences(user.id);
       if (prefs) {
         setForm({
           preferred_ev_model_id: prefs.preferred_ev_model_id || '',
@@ -37,7 +36,7 @@ export default function UserPreferences({ onClose }: Props) {
     if (!user) return;
     setSaving(true);
     try {
-      await upsertUserPreferences(user.id, form);
+      upsertUserPreferences(user.id, form);
       if (onClose) onClose();
     } finally {
       setSaving(false);

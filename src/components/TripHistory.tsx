@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { getUserTrips, updateTripFavorite, updateTripName, deleteTrip, type UserTrip } from '../lib/supabase';
+import { getUserTrips, updateTripFavorite, updateTripName, deleteTrip, type UserTrip } from '../lib/localStorage';
 import { Star, StarOff, Trash2, Pencil, Check, X, Navigation } from 'lucide-react';
 
 interface Props {
@@ -23,7 +23,7 @@ export default function TripHistory({ onClose, onReplan, onViewDetails }: Props)
       if (!user) return;
       setLoading(true);
       try {
-        const data = await getUserTrips(user.id, favoritesOnly);
+        const data = getUserTrips(user.id, favoritesOnly);
         setTrips(data);
       } finally {
         setLoading(false);
@@ -43,9 +43,11 @@ export default function TripHistory({ onClose, onReplan, onViewDetails }: Props)
   }, [trips, search]);
 
   const toggleFavorite = async (trip: UserTrip) => {
-    if (!trip.id) return;
-    const updated = await updateTripFavorite(trip.id, !trip.is_favorite);
-    setTrips(prev => prev.map(t => t.id === trip.id ? updated : t));
+    if (!trip.id || !user) return;
+    const updated = updateTripFavorite(trip.id, user.id, !trip.is_favorite);
+    if (updated) {
+      setTrips(prev => prev.map(t => t.id === trip.id ? updated : t));
+    }
   };
 
   const startEdit = (trip: UserTrip) => {
@@ -54,16 +56,18 @@ export default function TripHistory({ onClose, onReplan, onViewDetails }: Props)
   };
 
   const saveEdit = async () => {
-    if (!editingId) return;
-    const updated = await updateTripName(editingId, editingName);
-    setTrips(prev => prev.map(t => t.id === editingId ? updated : t));
-    setEditingId(null);
-    setEditingName('');
+    if (!editingId || !user) return;
+    const updated = updateTripName(editingId, user.id, editingName);
+    if (updated) {
+      setTrips(prev => prev.map(t => t.id === editingId ? updated : t));
+      setEditingId(null);
+      setEditingName('');
+    }
   };
 
   const removeTrip = async (trip: UserTrip) => {
-    if (!trip.id) return;
-    await deleteTrip(trip.id);
+    if (!trip.id || !user) return;
+    deleteTrip(trip.id, user.id);
     setTrips(prev => prev.filter(t => t.id !== trip.id));
   };
 

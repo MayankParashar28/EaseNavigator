@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase, type EVModel, getUserPreferences } from '../lib/supabase';
+import { EV_MODELS, type EVModel, getUserPreferences, saveTrip } from '../lib/localStorage';
 import { LogOut, MapPin, Navigation, Battery, Loader2, Settings, History } from 'lucide-react';
 import TripResults from './TripResults';
 import UserPreferences from './UserPreferences';
@@ -91,17 +91,10 @@ export default function TripPlanner({ onSignOut }: TripPlannerProps) {
     applyPreferences();
   }, [user]);
 
-  const loadEVModels = async () => {
-    const { data, error } = await supabase
-      .from('ev_models')
-      .select('*')
-      .order('manufacturer, model_name');
-
-    if (!error && data) {
-      setEvModels(data);
-      if (data.length > 0) {
-        setFormData(prev => ({ ...prev, evModelId: data[0].id }));
-      }
+  const loadEVModels = () => {
+    setEvModels(EV_MODELS);
+    if (EV_MODELS.length > 0) {
+      setFormData(prev => ({ ...prev, evModelId: EV_MODELS[0].id }));
     }
   };
 
@@ -302,27 +295,19 @@ export default function TripPlanner({ onSignOut }: TripPlannerProps) {
       };
 
       if (user) {
-        const { data, error: insertError } = await supabase
-          .from('user_trips')
-          .insert({
-            user_id: user.id,
-            ev_model_id: formData.evModelId,
-            origin_address: results.origin,
-            origin_lat: results.originCoords[0],
-            origin_lng: results.originCoords[1],
-            destination_address: results.destination,
-            destination_lat: results.destinationCoords[0],
-            destination_lng: results.destinationCoords[1],
-            starting_battery_percent: formData.batteryPercent,
-            route_data: results,
-          })
-          .select('id')
-          .single();
-        if (!insertError && data) {
-          setTripResults({ ...results, tripId: data.id });
-        } else {
-          setTripResults(results);
-        }
+        const savedTrip = saveTrip({
+          user_id: user.id,
+          ev_model_id: formData.evModelId,
+          origin_address: results.origin,
+          origin_lat: results.originCoords[0],
+          origin_lng: results.originCoords[1],
+          destination_address: results.destination,
+          destination_lat: results.destinationCoords[0],
+          destination_lng: results.destinationCoords[1],
+          starting_battery_percent: formData.batteryPercent,
+          route_data: results,
+        });
+        setTripResults({ ...results, tripId: savedTrip.id });
       } else {
         setTripResults(results);
       }

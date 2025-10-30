@@ -22,10 +22,11 @@ import {
 } from "lucide-react"
 import RouteMap from "./RouteMap"
 import AlternativeRoutes from "./AlternativeRoutes"
-import type { EVModel } from "../lib/supabase"
-import { updateTripFavorite, updateTripName, deleteTrip } from "../lib/supabase"
+import type { EVModel } from "../lib/localStorage"
+import { updateTripFavorite, updateTripName, deleteTrip } from "../lib/localStorage"
 import { trafficService, TrafficData, TrafficAlert, TrafficRoute } from "../lib/trafficService"
 import { analyzeTrip, analyzePredictions, optimizeSOCCharging, analyzeElevationWindImpact } from "../lib/ai"
+import { useAuth } from "../contexts/AuthContext"
 
 interface WeatherCondition {
   temp: number
@@ -76,6 +77,7 @@ interface TripResultsProps {
 }
 
 export default function TripResults({ results, onBack }: TripResultsProps) {
+  const { user } = useAuth()
   const [selectedRoute, setSelectedRoute] = useState<RouteWithGeometry>(results.routes[0])
   const [trafficData, setTrafficData] = useState<TrafficData | null>(null)
   const [trafficAlerts, setTrafficAlerts] = useState<TrafficAlert[]>([])
@@ -416,21 +418,25 @@ export default function TripResults({ results, onBack }: TripResultsProps) {
   const canSave = Boolean(results.tripId)
 
   const handleToggleFavorite = async () => {
-    if (!results.tripId) return
+    if (!results.tripId || !user) return
     try {
-      const updated = await updateTripFavorite(results.tripId, !isFavorite)
-      setIsFavorite(!!updated.is_favorite)
+      const updated = updateTripFavorite(results.tripId, user.id, !isFavorite)
+      if (updated) {
+        setIsFavorite(!!updated.is_favorite)
+      }
     } catch (e) {
       console.error(e)
     }
   }
 
   const handleSaveName = async () => {
-    if (!results.tripId) return
+    if (!results.tripId || !user) return
     setSavingName(true)
     try {
-      const updated = await updateTripName(results.tripId, tripName)
-      setTripName(updated.trip_name || "")
+      const updated = updateTripName(results.tripId, user.id, tripName)
+      if (updated) {
+        setTripName(updated.trip_name || "")
+      }
     } catch (e) {
       console.error(e)
     } finally {
@@ -439,9 +445,9 @@ export default function TripResults({ results, onBack }: TripResultsProps) {
   }
 
   const handleDeleteTrip = async () => {
-    if (!results.tripId) return
+    if (!results.tripId || !user) return
     try {
-      await deleteTrip(results.tripId)
+      deleteTrip(results.tripId, user.id)
       onBack()
     } catch (e) {
       console.error(e)

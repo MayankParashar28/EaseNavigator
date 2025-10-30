@@ -9,12 +9,6 @@ export const API_CONFIG = {
     MAX_RESULTS: 50,
   },
   
-  // Supabase (if needed)
-  SUPABASE: {
-    URL: import.meta.env.VITE_SUPABASE_URL,
-    ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY,
-  },
-  
   // Traffic APIs
   TRAFFIC: {
     GOOGLE_MAPS: {

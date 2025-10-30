@@ -1,6 +1,10 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { supabase } from '../lib/supabase';
-import type { User } from '@supabase/supabase-js';
+import { getUserId } from '../lib/localStorage';
+
+interface User {
+  id: string;
+  email?: string;
+}
 
 interface AuthContextType {
   user: User | null;
@@ -17,32 +21,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      (async () => {
-        setUser(session?.user ?? null);
-      })();
-    });
-
-    return () => subscription.unsubscribe();
+    // Auto-login with stored user ID (simple local auth)
+    const userId = getUserId();
+    setUser({ id: userId });
+    setLoading(false);
   }, []);
 
   const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({ email, password });
-    return { error };
+    // Simple local auth - just generate a new user ID
+    const userId = getUserId();
+    setUser({ id: userId, email });
+    return { error: null };
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error };
+    // Simple local auth - just use existing or create new user ID
+    const userId = getUserId();
+    setUser({ id: userId, email });
+    return { error: null };
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    // Clear user session (keep user ID for next login)
+    setUser(null);
   };
 
   return (
