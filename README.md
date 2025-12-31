@@ -27,7 +27,7 @@ It combines real-time data, smart energy predictions, and AI-powered optimizatio
 - Built for future **machine learning integration** to improve range estimation and route optimization.
 
 ### 📚 Trip History & Analytics
-- Every trip is automatically saved to your **Supabase** account.
+- Every trip is automatically saved to your browser's **Local Storage**.
 - View, replan, or analyze past trips directly from the dashboard.
 
 ### ⚙️ User Preferences
@@ -41,7 +41,7 @@ It combines real-time data, smart energy predictions, and AI-powered optimizatio
 | Area | Technology | Description |
 |------|-------------|-------------|
 | Frontend | **React + TypeScript** | Modular, scalable, and type-safe UI |
-| Backend & Database | **Supabase** | Auth, user data, and trip storage |
+| Backend & Storage | **Local Storage** | Browser-based persistent storage for user data |
 | Styling | **Tailwind CSS** | Modern responsive design |
 | Icons | **Lucide React** | Lightweight vector icons |
 | Build Tool | **Vite** | Fast bundler and dev server |
@@ -55,7 +55,7 @@ It combines real-time data, smart energy predictions, and AI-powered optimizatio
 | **OpenStreetMap (Nominatim)** | Converts place names to coordinates | Geocoding |
 | **OSRM (Open Source Routing Machine)** | Provides optimized driving routes | Routing |
 | **OpenChargeMap** | Finds nearby charging stations | EV Charging API |
-| **Supabase** | Stores trips, preferences, and user auth | Backend |
+| **Local Storage** | Stores trips, preferences, and session data | Browser Storage |
 | *(Optional)* OpenRoute / TomTom APIs | For live traffic and travel times | Traffic (future-ready) |
 
 ---
@@ -71,11 +71,8 @@ EaseNavigator/
 │   │   ├── TripHistory.tsx        # Past trip records
 │   │   ├── UserPreferences.tsx    # Settings for EV model & defaults
 │   │
-│   ├── contexts/
-│   │   └── AuthContext.tsx        # Supabase user auth context
-│   │
 │   ├── lib/
-│   │   ├── supabase.ts            # DB and auth functions
+│   │   ├── localStorage.ts        # Local DB and auth functions
 │   │   └── apiConfig.ts           # API configuration and keys
 │   │
 │   ├── App.tsx                    # App entry point
