@@ -1,5 +1,4 @@
-import React from 'react';
-import { AlertTriangle, Clock, MapPin, Construction, X, RefreshCw, Navigation } from 'lucide-react';
+import { AlertTriangle, Clock, Construction, X, RefreshCw, Navigation } from 'lucide-react';
 import { TrafficAlert, TrafficData } from '../lib/trafficService';
 
 interface TrafficAlertsProps {
@@ -10,12 +9,12 @@ interface TrafficAlertsProps {
   onRefreshTraffic: () => void;
 }
 
-export default function TrafficAlerts({ 
-  alerts, 
-  trafficData, 
-  onDismissAlert, 
-  onViewAlternatives, 
-  onRefreshTraffic 
+export default function TrafficAlerts({
+  alerts,
+  trafficData,
+  onDismissAlert,
+  onViewAlternatives,
+  onRefreshTraffic
 }: TrafficAlertsProps) {
   const getAlertIcon = (type: string) => {
     switch (type) {
@@ -33,15 +32,15 @@ export default function TrafficAlerts({
   const getAlertColor = (severity: string) => {
     switch (severity) {
       case 'critical':
-        return 'bg-red-50 border-red-200 text-red-800';
+        return 'bg-red-500/10 border-red-500/20 text-white';
       case 'high':
-        return 'bg-orange-50 border-orange-200 text-orange-800';
+        return 'bg-orange-500/10 border-orange-500/20 text-white';
       case 'medium':
-        return 'bg-yellow-50 border-yellow-200 text-yellow-800';
+        return 'bg-yellow-500/10 border-yellow-500/20 text-white';
       case 'low':
-        return 'bg-blue-50 border-blue-200 text-blue-800';
+        return 'bg-blue-500/10 border-blue-500/20 text-white';
       default:
-        return 'bg-gray-50 border-gray-200 text-gray-800';
+        return 'bg-white/5 border-white/10 text-white';
     }
   };
 
@@ -101,45 +100,44 @@ export default function TrafficAlerts({
       {alerts.map((alert) => (
         <div
           key={alert.id}
-          className={`border rounded-2xl p-6 shadow-lg ${getAlertColor(alert.severity)}`}
+          className={`border rounded - 2xl p - 6 shadow - lg ${getAlertColor(alert.severity)} `}
         >
           <div className="flex items-start space-x-4">
             <div className="flex-shrink-0 mt-1">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                alert.severity === 'critical' ? 'bg-red-500/20' :
+              <div className={`w - 10 h - 10 rounded - xl flex items - center justify - center ${alert.severity === 'critical' ? 'bg-red-500/20' :
                 alert.severity === 'high' ? 'bg-orange-500/20' :
-                alert.severity === 'medium' ? 'bg-yellow-500/20' :
-                'bg-blue-500/20'
-              }`}>
+                  alert.severity === 'medium' ? 'bg-yellow-500/20' :
+                    'bg-blue-500/20'
+                } `}>
                 {getAlertIcon(alert.type)}
               </div>
             </div>
-            
+
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between mb-2">
                 <h4 className="text-lg font-semibold">{alert.title}</h4>
                 {alert.dismissible && (
                   <button
                     onClick={() => onDismissAlert(alert.id)}
-                    className="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-lg hover:bg-slate-100"
+                    className="text-color-text-tertiary hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10"
                   >
                     <X className="w-5 h-5" />
                   </button>
                 )}
               </div>
-              
+
               <p className="text-base mb-4 leading-relaxed">{alert.message}</p>
-              
+
               {alert.action && (
                 <button
                   onClick={onViewAlternatives}
-                  className="inline-flex items-center space-x-2 text-sm font-medium hover:underline bg-white/50 px-4 py-2 rounded-lg transition-all duration-200 hover:bg-white/70"
+                  className="inline-flex items-center space-x-2 text-sm font-medium hover:underline bg-surface-highlight px-4 py-2 rounded-lg transition-all duration-200 hover:bg-white/10 border border-white/5"
                 >
                   <Navigation className="w-4 h-4" />
                   <span>{alert.action}</span>
                 </button>
               )}
-              
+
               {alert.expiresAt && (
                 <div className="text-xs mt-3 opacity-75 flex items-center space-x-1">
                   <Clock className="w-3 h-3" />

@@ -1,4 +1,3 @@
-import React from 'react';
 import { Navigation, Clock, MapPin, Zap, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { TrafficRoute } from '../lib/trafficService';
 
@@ -9,11 +8,11 @@ interface AlternativeRoutesProps {
   onGetDirections: (route: TrafficRoute) => void;
 }
 
-export default function AlternativeRoutes({ 
-  routes, 
-  selectedRouteId, 
-  onSelectRoute, 
-  onGetDirections 
+export default function AlternativeRoutes({
+  routes,
+  selectedRouteId,
+  onSelectRoute,
+  onGetDirections
 }: AlternativeRoutesProps) {
   if (routes.length === 0) {
     return (
@@ -64,11 +63,10 @@ export default function AlternativeRoutes({
       {routes.map((route) => (
         <div
           key={route.id}
-          className={`border rounded-lg p-4 cursor-pointer transition-all duration-200 ${
-            selectedRouteId === route.id
-              ? 'border-emerald-500 bg-emerald-50 shadow-md'
-              : 'border-slate-200 hover:border-slate-300 hover:shadow-sm'
-          }`}
+          className={`border rounded-lg p-4 cursor-pointer transition-all duration-200 ${selectedRouteId === route.id
+            ? 'border-emerald-500 bg-emerald-50 shadow-md'
+            : 'border-slate-200 hover:border-slate-300 hover:shadow-sm'
+            }`}
           onClick={() => onSelectRoute(route.id)}
         >
           <div className="flex items-start justify-between">
@@ -79,7 +77,7 @@ export default function AlternativeRoutes({
                   <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                 )}
                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${getCongestionColor(route.congestionLevel)}`}>
-                  {getCongestionIcon(route.congestionLevel)} {route.congestionLevel.charAt(0).toUpperCase() + route.congestionLevel.slice(1)}
+                  {getCongestionIcon(route.congestionLevel)} {(route.congestionLevel || 'unknown').charAt(0).toUpperCase() + (route.congestionLevel || 'unknown').slice(1)}
                 </span>
               </div>
 
@@ -121,11 +119,11 @@ export default function AlternativeRoutes({
                 </div>
               </div>
 
-              {route.warnings.length > 0 && (
+              {(route.warnings || []).length > 0 && (
                 <div className="mt-3">
                   <div className="text-xs text-slate-500 mb-1">Warnings:</div>
                   <div className="flex flex-wrap gap-1">
-                    {route.warnings.map((warning, index) => (
+                    {(route.warnings || []).map((warning, index) => (
                       <span
                         key={index}
                         className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs"

@@ -2,13 +2,13 @@
 export const API_CONFIG = {
   // OpenChargeMap API
   OPENCHARGE: {
-    BASE_URL: 'https://api.openchargemap.io/v3',
+    BASE_URL: '/api/ocm',
     // OpenChargeMap API key - using direct key for immediate functionality
     API_KEY: '8054f03f-85f5-4259-8173-0a31cc89da87',
     DEFAULT_RADIUS: 6.2, // 10km in miles (10 * 0.621371)
     MAX_RESULTS: 50,
   },
-  
+
   // Traffic APIs
   TRAFFIC: {
     GOOGLE_MAPS: {
@@ -22,6 +22,14 @@ export const API_CONFIG = {
     OPENROUTE: {
       API_KEY: import.meta.env.VITE_OPENROUTE_API_KEY || 'demo',
       BASE_URL: 'https://api.openrouteservice.org/v2',
+    }
+  },
+
+  // Weather API
+  WEATHER: {
+    OPENWEATHER: {
+      API_KEY: import.meta.env.VITE_OPENWEATHER_API_KEY || 'demo',
+      BASE_URL: 'https://api.openweathermap.org/data/2.5'
     }
   }
 };

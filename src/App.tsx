@@ -7,10 +7,13 @@ function AppContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+      <div className="min-h-screen bg-midnight flex items-center justify-center relative overflow-hidden">
+        {/* Ambient Glows */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-neon-purple/10 rounded-full blur-[120px] pointer-events-none"></div>
+
+        <div className="text-center relative z-10 space-y-4">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-r-2 border-neon-blue border-transparent"></div>
+          <p className="text-color-text-secondary font-medium tracking-wide animate-pulse">Initializing Interface...</p>
         </div>
       </div>
     );

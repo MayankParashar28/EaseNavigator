@@ -1,5 +1,5 @@
 // Real-time traffic integration service
-import { API_CONFIG } from '../config/api';
+
 
 export interface TrafficData {
   currentDelay: number;        // Minutes of delay
@@ -53,7 +53,8 @@ export interface TrafficAlert {
 }
 
 // Traffic service configuration
-const TRAFFIC_CONFIG = {
+// Traffic service configuration
+/* const TRAFFIC_CONFIG = {
   // Using Google Maps Traffic API (requires API key)
   GOOGLE_MAPS: {
     BASE_URL: 'https://maps.googleapis.com/maps/api',
@@ -70,7 +71,7 @@ const TRAFFIC_CONFIG = {
     BASE_URL: 'https://api.openrouteservice.org/v2',
     API_KEY: import.meta.env.VITE_OPENROUTE_API_KEY || 'demo',
   }
-};
+}; */
 
 export class TrafficService {
   private static instance: TrafficService;
@@ -85,7 +86,7 @@ export class TrafficService {
   }
 
   private generateSimulatedTrafficData(
-    origin: [number, number], 
+    origin: [number, number],
     destination: [number, number]
   ): TrafficData {
     // Simulate traffic data for demo purposes
@@ -93,7 +94,7 @@ export class TrafficService {
     const delay = Math.floor(Math.random() * 30) + 5; // 5-35 minute delay
     const congestionLevels: Array<'low' | 'medium' | 'high' | 'severe'> = ['low', 'medium', 'high', 'severe'];
     const congestionLevel = congestionLevels[Math.floor(Math.random() * congestionLevels.length)];
-    
+
     // Generate alternative routes
     const alternativeRoutes: TrafficRoute[] = [
       {
@@ -152,68 +153,48 @@ export class TrafficService {
   }
 
   private generateRouteGeometry(
-    origin: [number, number], 
-    destination: [number, number], 
+    origin: [number, number],
+    destination: [number, number],
     offset: number
   ): [number, number][] {
     // Generate a simple curved route between origin and destination
     const points: [number, number][] = [origin];
     const steps = 5;
-    
+
     for (let i = 1; i < steps; i++) {
       const t = i / steps;
       const lat = origin[0] + (destination[0] - origin[0]) * t + (Math.random() - 0.5) * offset;
       const lng = origin[1] + (destination[1] - origin[1]) * t + (Math.random() - 0.5) * offset;
       points.push([lat, lng]);
     }
-    
+
     points.push(destination);
     return points;
   }
 
   async getTrafficData(
     origin: [number, number],
-    destination: [number, number],
-    routeGeometry?: [number, number][]
+    destination: [number, number]
   ): Promise<TrafficData> {
     const cacheKey = `${origin[0]},${origin[1]}-${destination[0]},${destination[1]}`;
     const cached = this.cache.get(cacheKey);
-    
+
     // Return cached data if still valid
     if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
       return cached.data;
     }
 
-    try {
-      // For demo purposes, use simulated data
-      // In production, integrate with real traffic APIs
-      const trafficData = this.generateSimulatedTrafficData(origin, destination);
-      
-      // Cache the results
-      this.cache.set(cacheKey, {
-        data: trafficData,
-        timestamp: Date.now()
-      });
+    // fallback to simulation due to CORS issues in browser environment with direct API calls.
+    // In production, this would be proxied via backend.
+    const trafficData = this.generateSimulatedTrafficData(origin, destination);
 
-      return trafficData;
-    } catch (error) {
-      console.error('Error fetching traffic data:', error);
-      
-      // Return fallback data
-      return {
-        currentDelay: 0,
-        congestionLevel: 'low',
-        alternativeRoutes: [],
-        roadConditions: {
-          weather: 'Unknown',
-          construction: false,
-          closures: [],
-          incidents: []
-        },
-        lastUpdated: new Date().toISOString(),
-        confidence: 0
-      };
-    }
+    // Cache the results
+    this.cache.set(cacheKey, {
+      data: trafficData,
+      timestamp: Date.now()
+    });
+
+    return trafficData;
   }
 
   async getTrafficAlerts(
@@ -271,13 +252,13 @@ export class TrafficService {
     }
 
     // Add incident alerts
-    trafficData.roadConditions.incidents.forEach((incident, index) => {
+    trafficData.roadConditions.incidents.forEach((incident) => {
       alerts.push({
         id: `incident-${incident.id}`,
         type: 'warning',
-        title: `${incident.type.charAt(0).toUpperCase() + incident.type.slice(1)} Alert`,
+        title: `${(incident.type || 'other').charAt(0).toUpperCase() + (incident.type || 'other').slice(1)} Alert`,
         message: incident.description,
-        severity: incident.severity,
+        severity: incident.severity === 'severe' ? 'critical' : incident.severity,
         dismissible: true,
         expiresAt: incident.endTime
       });
