@@ -35,11 +35,11 @@ export default function TripHeader({
                     <div className="flex items-center space-x-3 md:space-x-4 animate-enter-up">
                         <button
                             onClick={onBack}
-                            className="group flex items-center space-x-2 px-3 md:px-4 py-2 md:py-2.5 btn-secondary text-xs md:text-sm hover-lift shadow-sm shrink-0"
+                            className="group flex items-center space-x-2 px-3 md:px-4 py-2 md:py-2.5 btn-secondary text-xs md:text-sm hover-lift shadow-sm shrink-0 min-h-[44px]"
                         >
                             <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-                            <span className="hidden sm:inline">Back to Planning</span>
-                            <span className="sm:hidden">Back</span>
+                            <span className="hidden md:inline">Back to Planning</span>
+                            <span className="md:hidden">Back</span>
                         </button>
 
                         <div className="h-8 w-px bg-white/10 shrink-0"></div>
@@ -62,8 +62,8 @@ export default function TripHeader({
                         <div className="flex items-center space-x-2 animate-enter-up animation-delay-200 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
                             <button
                                 onClick={onToggleFavorite}
-                                className={`p-2 md:p-2.5 rounded-full transition-all duration-200 hover-lift shrink-0 ${isFavorite
-                                    ? 'bg-neon-yellow/10 text-neon-yellow border border-neon-yellow/20 shadow-[0_0_15px_rgba(255,255,0,0.1)]'
+                                className={`p-2 md:p-2.5 rounded-full transition-all duration-300 transform active:scale-90 shrink-0 ${isFavorite
+                                    ? 'bg-neon-blue/10 text-neon-blue border border-neon-blue/20 shadow-[0_0_15px_rgba(44,182,125,0.2)]'
                                     : 'bg-surface-highlight text-color-text-secondary hover:text-white border border-white/5'
                                     }`}
                                 title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
@@ -77,12 +77,12 @@ export default function TripHeader({
                                     value={tripName}
                                     onChange={(e) => setTripName(e.target.value)}
                                     placeholder="Trip name..."
-                                    className="input-modern py-1.5 md:py-2 px-3 md:px-4 text-xs md:text-sm w-24 sm:w-32 md:w-48"
+                                    className="input-modern py-1.5 md:py-2 px-3 md:px-4 text-xs md:text-sm w-20 sm:w-32 md:w-48 min-h-[44px]"
                                 />
                                 <button
                                     onClick={onSaveName}
                                     disabled={savingName}
-                                    className="px-3 md:px-4 py-1.5 md:py-2 btn-primary text-xs md:text-sm disabled:opacity-50 whitespace-nowrap"
+                                    className="btn-primary !py-1.5 md:!py-2 !px-3 md:!px-4 text-xs md:text-sm disabled:opacity-50 whitespace-nowrap min-h-[44px]"
                                 >
                                     {savingName ? '...' : 'Save'}
                                 </button>
@@ -90,7 +90,7 @@ export default function TripHeader({
 
                             <button
                                 onClick={onDeleteTrip}
-                                className="p-2 md:p-2.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-full hover:bg-red-500/20 transition-all duration-200 hover-lift shrink-0"
+                                className="p-2 md:p-2.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-full hover:bg-red-500/20 transition-all duration-300 transform active:scale-90 shrink-0"
                                 title="Delete trip"
                             >
                                 <X className="w-4 h-4 md:w-5 md:h-5" />

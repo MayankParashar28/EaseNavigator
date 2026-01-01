@@ -5,6 +5,13 @@ export interface AIRecommendation {
   reasons: string[];
   chargingPlan: Array<{ stop: string; minutes: number }>; // simple, UI-friendly
   risks: string[];
+  explanation?: string;
+}
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: string;
 }
 
 type LatLng = [number, number];
@@ -27,10 +34,10 @@ export interface AnalyzeInput {
     name: string;
     distance: number;
     duration: number;
-    batteryUsage: number;
-    chargingStops: number;
-    energyEfficiency: number;
-    estimatedCost: number;
+    batteryUsage?: number;
+    chargingStops?: number;
+    energyEfficiency?: number;
+    estimatedCost?: number;
   }>;
 }
 
@@ -148,18 +155,18 @@ async function callGemini(prompt: string): Promise<AIRecommendation | null> {
 }
 
 function localHeuristic(input: AnalyzeInput): AIRecommendation {
-  const best = input.routes.reduce((a, b) => (a.energyEfficiency <= b.energyEfficiency ? a : b));
+  const best = input.routes.reduce((a, b) => ((a.energyEfficiency || 0.28) <= (b.energyEfficiency || 0.28) ? a : b));
   const fastest = input.routes.reduce((a, b) => (a.duration <= b.duration ? a : b));
   const recommended = best.duration - fastest.duration > 20 ? fastest : best;
   const reasons = [
-    `Energy efficiency ${recommended.energyEfficiency} kWh/mi`,
+    `Energy efficiency ${recommended.energyEfficiency || 0.28} kWh/mi`,
     `Duration ${recommended.duration} min`,
-    `Estimated cost $${recommended.estimatedCost}`,
+    `Estimated cost $${recommended.estimatedCost || 0}`,
   ];
   const risks = [] as string[];
-  if (recommended.batteryUsage > input.startingBattery) risks.push('Requires at least one charging stop');
+  if ((recommended.batteryUsage || 0) > input.startingBattery) risks.push('Requires at least one charging stop');
   if (recommended.duration - fastest.duration > 15) risks.push('Significantly slower than the fastest route');
-  const chargingPlan = recommended.chargingStops > 0 ? [{ stop: 'Mid-route fast charger', minutes: 25 * recommended.chargingStops }] : [];
+  const chargingPlan = (recommended.chargingStops || 0) > 0 ? [{ stop: 'Mid-route fast charger', minutes: 25 * (recommended.chargingStops || 0) }] : [];
   return {
     summary: `Recommended ${recommended.name} balancing time and efficiency`,
     recommendedRouteId: recommended.id,
@@ -537,6 +544,7 @@ export interface ParsedTripCommand {
   batteryPercent?: number;
   preferences: string[];
   confidence: number;
+  explanation?: string;
 }
 
 export async function parseTripCommand(text: string): Promise<ParsedTripCommand | null> {
@@ -582,6 +590,76 @@ export async function parseTripCommand(text: string): Promise<ParsedTripCommand 
   } catch {
     console.error("AI Parse Error");
     return null;
+  }
+}
+
+export async function getChatResponse(params: {
+  text: string;
+  history: ChatMessage[];
+  context?: {
+    origin?: string;
+    destination?: string;
+    evModel?: AnalyzeInput['evModel'];
+    routes?: AnalyzeInput['routes'];
+    startingBattery?: number;
+  }
+}): Promise<{ response: string; command?: ParsedTripCommand }> {
+  const apiKey = (import.meta as unknown as { env?: Record<string, unknown> }).env?.VITE_GEMINI_API_KEY as string | undefined;
+  if (!apiKey) return { response: "I'm sorry, I'm offline right now." };
+
+  const { text, history, context } = params;
+
+  const systemPrompt = `
+    You are Neural Navigator's AI Assistant. Be helpful, concise, and technical.
+    Current Context:
+    - Origin: ${context?.origin || 'Not set'}
+    - Destination: ${context?.destination || 'Not set'}
+    - Vehicle: ${context?.evModel?.manufacturer} ${context?.evModel?.model_name || 'Not set'}
+    - Routes: ${context?.routes?.length || 0} available
+
+    Rules:
+    1. If the user asks for a trip, explain WHY you recommend it (e.g., cheaper charging, better weather).
+    2. If context is provided, use it to give specific advice.
+    3. Return JSON with keys:
+       - response: (string) Your friendly message to the user.
+       - command: (object or null) { origin, destination, batteryPercent, preferences[], explanation }
+  `;
+
+  const messages = [
+    ...history.slice(-5).map(m => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }]
+    })),
+    { role: 'user', parts: [{ text }] }
+  ];
+
+  try {
+    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + encodeURIComponent(apiKey), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: messages,
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        generationConfig: {
+          temperature: 0.2,
+          responseMimeType: "application/json"
+        }
+      })
+    });
+
+    if (!res.ok) throw new Error('API Error');
+    const data: any = await res.json();
+    const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!resultText) throw new Error('Empty response');
+
+    const parsed = JSON.parse(resultText);
+    return {
+      response: parsed.response,
+      command: parsed.command
+    };
+  } catch (err) {
+    console.error("Chat Error", err);
+    return { response: "I had trouble processing that. Can you try again?" };
   }
 }
 

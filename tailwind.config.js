@@ -26,7 +26,12 @@ export default {
         'color-text': {
           secondary: '#94A1B2',
           tertiary: '#72757E',
-        }
+        },
+        accent: '#00D9D9',
+        success: '#2CB67D',
+        error: '#E53E3E',
+        warning: '#ECC94B',
+        info: '#3182CE',
       },
       boxShadow: {
         'neon-focus': '0 0 20px rgba(127, 90, 240, 0.1)',

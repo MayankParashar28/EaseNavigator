@@ -29,11 +29,21 @@ export interface UserTrip {
   notes?: string | null;
 }
 
+export interface VehiclePreset {
+  id: string;
+  name: string;
+  evModelId: string;
+  batteryPercent: number;
+  batteryHealth: number;
+}
+
 export interface UserPreferences {
   preferred_ev_model_id?: string | null;
   default_battery_buffer_percent?: number | null;
   battery_health_percent?: number | null;
   prefer_scenic_routes?: boolean | null;
+  preferred_amenities?: string[] | null;
+  vehicle_presets?: VehiclePreset[] | null;
 }
 
 // Hardcoded EV models data

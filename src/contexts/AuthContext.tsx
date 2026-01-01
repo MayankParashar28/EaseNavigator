@@ -9,8 +9,8 @@ interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  signUp: (email: string, password: string) => Promise<{ error: any }>;
-  signIn: (email: string, password: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string) => Promise<{ error: string | null }>;
+  signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -29,6 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (email: string, password: string) => {
     // Simple local auth - just generate a new user ID
+    console.log("Signing up user:", email, password.length);
     const userId = getUserId();
     setUser({ id: userId, email });
     return { error: null };
@@ -36,6 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     // Simple local auth - just use existing or create new user ID
+    console.log("Signing in user:", email, password.length);
     const userId = getUserId();
     setUser({ id: userId, email });
     return { error: null };

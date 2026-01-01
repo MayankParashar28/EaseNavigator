@@ -98,7 +98,7 @@ export default function TripHistory({ onClose, onReplan, onViewDetails }: Props)
             className="input-modern py-2.5"
           />
         </div>
-        <label className="flex items-center gap-3 text-sm text-color-text-secondary cursor-pointer hover:text-white transition-colors">
+        <label className="flex items-center gap-3 text-sm font-medium text-color-text-secondary cursor-pointer hover:text-white transition-colors">
           <input
             type="checkbox"
             checked={favoritesOnly}
@@ -170,7 +170,7 @@ export default function TripHistory({ onClose, onReplan, onViewDetails }: Props)
                 {onViewDetails && (
                   <button
                     onClick={() => onViewDetails(trip)}
-                    className="flex-1 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-xs font-bold hover:bg-white/10 transition-all"
+                    className="flex-1 btn-secondary !py-2 !rounded-xl text-xs font-bold"
                   >
                     Details
                   </button>
@@ -178,7 +178,7 @@ export default function TripHistory({ onClose, onReplan, onViewDetails }: Props)
                 {onReplan && (
                   <button
                     onClick={() => onReplan(trip)}
-                    className="flex-[2] px-4 py-2 rounded-xl bg-neon-green/10 text-neon-green border border-neon-green/20 text-xs font-bold hover:bg-neon-green/20 flex items-center justify-center gap-2 transition-all"
+                    className="flex-[2] btn-primary !py-2 !rounded-xl text-xs font-bold flex items-center justify-center gap-2"
                   >
                     <Navigation className="w-4 h-4" /> Re-route Trip
                   </button>

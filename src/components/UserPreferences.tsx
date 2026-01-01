@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { EV_MODELS, type EVModel, getUserPreferences, upsertUserPreferences } from '../lib/localStorage';
-import { Map, Car, X, Save, Battery, Gauge } from 'lucide-react';
+import { Map, Car, X, Save, Battery, Gauge, Coffee, Wifi, ShoppingBag, Info } from 'lucide-react';
 
 interface Props {
   onClose?: () => void;
@@ -17,6 +17,7 @@ export default function UserPreferences({ onClose }: Props) {
     default_battery_buffer_percent: 20 as number,
     battery_health_percent: 100 as number,
     prefer_scenic_routes: false as boolean,
+    preferred_amenities: [] as string[],
   });
 
   useEffect(() => {
@@ -30,6 +31,7 @@ export default function UserPreferences({ onClose }: Props) {
           default_battery_buffer_percent: prefs.default_battery_buffer_percent ?? 20,
           battery_health_percent: prefs.battery_health_percent ?? 100,
           prefer_scenic_routes: !!prefs.prefer_scenic_routes,
+          preferred_amenities: prefs.preferred_amenities || [],
         });
       } else if (EV_MODELS.length > 0) {
         setForm(prev => ({ ...prev, preferred_ev_model_id: EV_MODELS[0].id }));
@@ -61,7 +63,7 @@ export default function UserPreferences({ onClose }: Props) {
       <div className="absolute bottom-0 left-0 w-64 h-64 bg-neon-blue/10 rounded-full blur-[100px] pointer-events-none"></div>
 
       {/* Left Column: My Garage Visual */}
-      <div className="md:w-5/12 bg-surface-highlight/50 p-8 flex flex-col relative overflow-hidden border-r border-white/5">
+      <div className="w-full md:w-5/12 bg-surface-highlight/50 p-6 md:p-8 flex flex-col relative overflow-hidden border-b md:border-b-0 md:border-r border-white/5">
         <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/40 pointer-events-none"></div>
 
         <div className="relative z-10">
@@ -69,7 +71,7 @@ export default function UserPreferences({ onClose }: Props) {
             <div className="p-2 bg-white/5 rounded-lg border border-white/10">
               <Car className="w-5 h-5 text-neon-blue" />
             </div>
-            <h2 className="text-xl font-bold text-white tracking-wide">MY GARAGE</h2>
+            <h2 className="text-xl font-bold text-white tracking-wide">My Garage</h2>
           </div>
 
           {selectedModel ? (
@@ -130,7 +132,7 @@ export default function UserPreferences({ onClose }: Props) {
       </div>
 
       {/* Right Column: Settings */}
-      <div className="md:w-7/12 p-8 flex flex-col">
+      <div className="flex-1 p-6 md:p-10 flex flex-col">
         <div className="flex justify-between items-center mb-8">
           <h3 className="text-lg font-bold text-white">Configuration</h3>
           <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-lg transition-colors">
@@ -141,7 +143,7 @@ export default function UserPreferences({ onClose }: Props) {
         <div className="space-y-8 flex-1 overflow-y-auto pr-2 custom-scrollbar">
           {/* Vehicle Selection */}
           <div className="space-y-3">
-            <label className="text-sm font-medium text-gray-400">Selected Vehicle</label>
+            <label className="label-modern">Selected Vehicle</label>
             <div className="relative">
               <select
                 className="w-full appearance-none bg-surface-highlight border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-neon-blue/50 focus:ring-1 focus:ring-neon-blue/50 transition-all duration-200"
@@ -161,7 +163,7 @@ export default function UserPreferences({ onClose }: Props) {
           {/* Battery Health Slider */}
           <div className="space-y-4">
             <div className="flex justify-between items-end">
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-400">
+              <label className="label-modern flex items-center gap-2">
                 <Gauge className="w-4 h-4 text-neon-purple" />
                 Battery Health
               </label>
@@ -187,7 +189,7 @@ export default function UserPreferences({ onClose }: Props) {
           {/* Buffer Slider */}
           <div className="space-y-4">
             <div className="flex justify-between items-end">
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-400">
+              <label className="label-modern flex items-center gap-2">
                 <Battery className="w-4 h-4 text-neon-green" />
                 Min. Buffer
               </label>
@@ -223,16 +225,49 @@ export default function UserPreferences({ onClose }: Props) {
               <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200 shadow-sm ${form.prefer_scenic_routes ? 'translate-x-[22px] bg-neon-blue shadow-[0_0_10px_rgba(0,240,255,0.5)]' : 'translate-x-0'}`}></div>
             </div>
           </div>
+
+          {/* Amenity Preferences */}
+          <div className="space-y-4">
+            <label className="label-modern">Preferred Amenities</label>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { id: 'restrooms', label: 'Restrooms', icon: <Info className="w-4 h-4" /> },
+                { id: 'food', label: 'Food & Drinks', icon: <Coffee className="w-4 h-4" /> },
+                { id: 'shopping', label: 'Shopping', icon: <ShoppingBag className="w-4 h-4" /> },
+                { id: 'wifi', label: 'Free WiFi', icon: <Wifi className="w-4 h-4" /> },
+              ].map((amenity) => (
+                <button
+                  key={amenity.id}
+                  onClick={() => {
+                    const current = form.preferred_amenities;
+                    const next = current.includes(amenity.id)
+                      ? current.filter(id => id !== amenity.id)
+                      : [...current, amenity.id];
+                    setForm({ ...form, preferred_amenities: next });
+                  }}
+                  className={`flex items-center gap-3 p-3 rounded-xl border transition-all duration-200 ${form.preferred_amenities.includes(amenity.id)
+                    ? 'bg-neon-purple/10 border-neon-purple/50 text-white'
+                    : 'bg-white/5 border-white/10 text-gray-500 hover:border-white/20'
+                    }`}
+                >
+                  <div className={form.preferred_amenities.includes(amenity.id) ? 'text-neon-purple' : 'text-gray-500'}>
+                    {amenity.icon}
+                  </div>
+                  <span className="text-xs font-bold uppercase tracking-wider">{amenity.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
-        <div className="pt-8 mt-auto border-t border-white/5 flex gap-10">
-          <button onClick={onClose} className="flex-1 py-3 rounded-xl border border-white/10 text-gray-400 font-medium hover:bg-white/5 hover:text-white transition-all">
+        <div className="pt-8 mt-auto border-t border-white/5 flex gap-4">
+          <button onClick={onClose} className="flex-1 btn-secondary !py-3 !rounded-xl text-sm font-medium">
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="flex-[2] py-3 rounded-xl btn-primary shadow-lg shadow-neon-purple/20 flex items-center justify-center gap-2 font-bold disabled:opacity-50"
+            className="flex-[2] btn-primary !py-3 !rounded-xl flex items-center justify-center gap-2 font-bold disabled:opacity-50"
           >
             {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
             <span>Save Configuration</span>

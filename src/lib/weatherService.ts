@@ -95,16 +95,18 @@ export class WeatherService {
     /**
      * Generate realistic weather based on latitude and season
      */
-    private generateSimulatedWeather(lat: number, _lon: number): WeatherData {
+    private generateSimulatedWeather(lat: number, lon: number): WeatherData {
         const isNorthernHemisphere = lat > 0;
         const month = new Date().getMonth(); // 0-11
+        // Use lon to shift the luck of the draw slightly for deterministic-ish results
+        const lonOffset = Math.sin(lon) * 5;
         const isWinter = isNorthernHemisphere
             ? (month <= 2 || month >= 11)
             : (month >= 5 && month <= 7);
 
         // Base temp based on latitude (rough approximation)
         // Equator ~85F, Poles ~-10F
-        let baseTemp = 90 - (Math.abs(lat) * 0.8);
+        let baseTemp = 90 - (Math.abs(lat) * 0.8) + lonOffset;
 
         // Adjust for season
         if (isWinter) baseTemp -= 20;

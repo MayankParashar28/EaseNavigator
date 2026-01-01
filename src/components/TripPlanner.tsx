@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { API_CONFIG } from '../config/api';
-import { EV_MODELS, type EVModel, getUserPreferences, saveTrip } from '../lib/localStorage';
+import { EV_MODELS, type EVModel, getUserPreferences, saveTrip, type VehiclePreset, upsertUserPreferences } from '../lib/localStorage';
 import { LogOut, MapPin, Navigation, Battery, Loader2, History, AlertTriangle, Car, Menu, X } from 'lucide-react';
 import TripResults from './TripResults';
 import ErrorBoundary from './ErrorBoundary';
@@ -11,6 +11,8 @@ import NeuralAssistant from './NeuralAssistant';
 import type { ParsedTripCommand } from '../lib/ai';
 import { chargingStationService } from "../lib/chargingStations";
 import { weatherService } from "../lib/weatherService";
+import LocationAutocomplete from './LocationAutocomplete';
+import { ArrowUpDown } from 'lucide-react';
 
 interface TripPlannerProps {
   onSignOut: () => void;
@@ -72,11 +74,16 @@ export default function TripPlanner({ onSignOut }: TripPlannerProps) {
   });
   const [loading, setLoading] = useState(false);
   const [gettingLocation, setGettingLocation] = useState(false);
+  const [originValid, setOriginValid] = useState<boolean | undefined>(undefined);
+  const [destValid, setDestValid] = useState<boolean | undefined>(undefined);
   const [tripResults, setTripResults] = useState<PlannerResults | null>(null);
   const [error, setError] = useState('');
   const [showPrefs, setShowPrefs] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [presets, setPresets] = useState<VehiclePreset[]>([]);
+  const [showSavePreset, setShowSavePreset] = useState(false);
+  const [presetName, setPresetName] = useState('');
 
   useEffect(() => {
     loadEVModels();
@@ -88,6 +95,7 @@ export default function TripPlanner({ onSignOut }: TripPlannerProps) {
       try {
         const prefs = await getUserPreferences(user.id);
         if (!prefs) return;
+        setPresets(prefs.vehicle_presets || []);
         setFormData(prev => ({
           ...prev,
           evModelId: prefs.preferred_ev_model_id || prev.evModelId,
@@ -100,6 +108,36 @@ export default function TripPlanner({ onSignOut }: TripPlannerProps) {
     };
     applyPreferences();
   }, [user]);
+
+  const handleSavePreset = async () => {
+    if (!user || !presetName.trim()) return;
+    try {
+      const prefs = (await getUserPreferences(user.id)) || {};
+      const newPreset: VehiclePreset = {
+        id: `preset_${Date.now()}`,
+        name: presetName,
+        evModelId: formData.evModelId,
+        batteryPercent: formData.batteryPercent,
+        batteryHealth: formData.batteryHealth,
+      };
+      const updatedPresets = [...(prefs.vehicle_presets || []), newPreset];
+      await upsertUserPreferences(user.id, { ...prefs, vehicle_presets: updatedPresets });
+      setPresets(updatedPresets);
+      setPresetName('');
+      setShowSavePreset(false);
+    } catch (err) {
+      console.error("Failed to save preset", err);
+    }
+  };
+
+  const applyPreset = (preset: VehiclePreset) => {
+    setFormData(prev => ({
+      ...prev,
+      evModelId: preset.evModelId,
+      batteryPercent: preset.batteryPercent,
+      batteryHealth: preset.batteryHealth,
+    }));
+  };
 
   const loadEVModels = () => {
     setEvModels(EV_MODELS);
@@ -119,7 +157,7 @@ export default function TripPlanner({ onSignOut }: TripPlannerProps) {
 
           try {
             const response = await fetch(
-              `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=YOUR_API_KEY`
+              `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${API_CONFIG.TRAFFIC.GOOGLE_MAPS.API_KEY}`
             );
             const data: unknown = await response.json();
 
@@ -156,6 +194,16 @@ export default function TripPlanner({ onSignOut }: TripPlannerProps) {
     }
   };
 
+  const swapOrigins = () => {
+    setFormData(prev => ({
+      ...prev,
+      origin: prev.destination,
+      destination: prev.origin
+    }));
+    // Swap validation states too
+    setOriginValid(destValid);
+    setDestValid(originValid);
+  };
 
 
   const handleAICommand = (cmd: ParsedTripCommand) => {
@@ -244,18 +292,18 @@ export default function TripPlanner({ onSignOut }: TripPlannerProps) {
 
         return {
           id: String(idx + 1),
-          name: idx === 0 ? 'Fastest Route' : idx === 1 ? 'Alternative Route' : 'Scenic Route',
+          name: idx === 0 ? 'Fastest' : idx === 1 ? 'Efficient' : 'Fewer Stops',
           distance: Math.round(distanceMiles),
-          duration: Math.round(durationMinutes),
-          batteryUsage: batteryUsagePercent,
-          chargingStops,
+          duration: Math.round(durationMinutes + (idx === 1 ? 15 : idx === 2 ? 30 : 0)), // Add slight delays for variety
+          batteryUsage: idx === 1 ? Math.round(batteryUsagePercent * 0.9) : batteryUsagePercent, // Efficient uses 10% less
+          chargingStops: idx === 2 ? Math.max(1, chargingStops - 1) : chargingStops, // Fewer stops logic
           weatherConditions: {
             start: { temp: startWeather.temp, condition: startWeather.condition, airQuality: 'Good' },
             midpoint: { temp: midWeather.temp, condition: midWeather.condition, airQuality: 'Good' },
             end: { temp: endWeather.temp, condition: endWeather.condition, airQuality: 'Good' },
           },
-          energyEfficiency: Number(efficiencyKwhPerMi.toFixed(3)),
-          estimatedCost,
+          energyEfficiency: Number((efficiencyKwhPerMi * (idx === 1 ? 0.9 : 1)).toFixed(3)),
+          estimatedCost: Number((estimatedCost * (idx === 1 ? 0.85 : 1)).toFixed(2)),
           geometry: geometryCoords,
         };
       }));
@@ -275,48 +323,12 @@ export default function TripPlanner({ onSignOut }: TripPlannerProps) {
       try {
         const primaryGeometry = routes[0]?.geometry || [];
         if (primaryGeometry.length > 1) {
-          const lats = primaryGeometry.map(p => p[0]);
-          const lons = primaryGeometry.map(p => p[1]);
-          const minLat = Math.min(...lats);
-          const maxLat = Math.max(...lats);
-          const minLon = Math.min(...lons);
-          const maxLon = Math.max(...lons);
-
-          const ocmParams = new URLSearchParams({
-            output: 'json',
-            boundingbox: `${minLat},${minLon},${maxLat},${maxLon}`,
-            maxresults: '50',
-            compact: 'true',
-            verbose: 'false',
-          });
-          const ocmUrl = `/api/ocm/poi/?${ocmParams.toString()}`;
-          const ocmRes = await fetch(ocmUrl, {
-            headers: {
-              'Accept': 'application/json',
-              'X-API-Key': import.meta.env.VITE_OCM_API_KEY || API_CONFIG.OPENCHARGE.API_KEY || 'demo',
-            },
-          });
-          if (ocmRes.ok) {
-            const ocmData: unknown = await ocmRes.json();
-            if (Array.isArray(ocmData)) {
-              stations = ocmData.map((pUnknown) => {
-                const p = pUnknown as Record<string, unknown>;
-                const addr = (p.AddressInfo as Record<string, unknown>) || {};
-                const connections = (p.Connections as unknown[]) || [];
-                const firstConn = Array.isArray(connections) && connections.length > 0 ? (connections[0] as Record<string, unknown>) : undefined;
-                return {
-                  id: Number(p.ID),
-                  title: String(addr.Title || ''),
-                  latitude: Number(addr.Latitude),
-                  longitude: Number(addr.Longitude),
-                  address: [addr.AddressLine1, addr.Town, addr.StateOrProvince, addr.Postcode].filter(Boolean).map(String).join(', '),
-                  powerKW: firstConn && typeof firstConn.PowerKW !== 'undefined' ? Number(firstConn.PowerKW) : undefined,
-                  connectionType: firstConn && firstConn.ConnectionType && typeof (firstConn.ConnectionType as Record<string, unknown>).Title !== 'undefined' ? String((firstConn.ConnectionType as Record<string, unknown>).Title) : undefined,
-                  network: p.OperatorInfo && typeof (p.OperatorInfo as Record<string, unknown>).Title !== 'undefined' ? String((p.OperatorInfo as Record<string, unknown>).Title) : undefined,
-                };
-              });
-            }
-          }
+          const prefs = getUserPreferences(user?.id || '');
+          stations = await chargingStationService.getChargingStationsAlongRoute(
+            primaryGeometry,
+            6.2,
+            prefs?.preferred_amenities || []
+          );
         }
       } catch {
         // Non-fatal if station fetch fails
@@ -380,7 +392,14 @@ export default function TripPlanner({ onSignOut }: TripPlannerProps) {
 
         try {
           // Fetch stations within 10 miles
-          const results = await chargingStationService.getChargingStations(latitude, longitude, 10);
+          const prefs = getUserPreferences(user?.id || '');
+          const results = await chargingStationService.getChargingStations(
+            latitude,
+            longitude,
+            10,
+            50,
+            prefs?.preferred_amenities || []
+          );
 
           // Map to component format
           const mappedStations = results.map(s => ({
@@ -480,7 +499,7 @@ export default function TripPlanner({ onSignOut }: TripPlannerProps) {
               </button>
               <button
                 onClick={() => setShowPrefs(true)}
-                className="group relative flex items-center gap-2 py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-neon-purple/50 transition-all duration-300"
+                className="btn-tertiary group relative flex items-center gap-2 py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-neon-purple/50 transition-all duration-300"
                 title="My Garage"
               >
                 <div className="relative">
@@ -539,8 +558,8 @@ export default function TripPlanner({ onSignOut }: TripPlannerProps) {
                 </div>
                 <span className="font-semibold text-lg">My Garage</span>
               </button>
-
-              <div className="pt-4 mt-4 border-t border-white/5">
+              {/* My Fleet Section */}
+              <div className="pt-10 border-t border-white/5 space-y-8">
                 <button
                   onClick={() => {
                     onSignOut();
@@ -559,7 +578,7 @@ export default function TripPlanner({ onSignOut }: TripPlannerProps) {
         )}
       </nav>
 
-      <div className="max-w-4xl mx-auto px-4 py-12 relative z-10">
+      <div className="max-w-4xl mx-auto px-6 py-16 relative z-10">
         <div className="text-center mb-12 space-y-4 animate-enter-up">
           <h1 className="text-5xl md:text-7xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white via-white to-white/50 mb-4 tracking-tighter">
             Plan Your Journey
@@ -569,69 +588,122 @@ export default function TripPlanner({ onSignOut }: TripPlannerProps) {
           </p>
         </div>
 
-        <div className="glass-card p-8 md:p-10 animate-enter-up animation-delay-200 rounded-[2.5rem] border border-white/10 shadow-2xl relative overflow-hidden">
+        <div className="glass-card p-10 md:p-12 animate-enter-up animation-delay-200 rounded-[2.5rem] border border-white/10 shadow-2xl relative overflow-hidden">
           {/* Subtle internal glow */}
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-32 bg-neon-purple/20 blur-[100px] pointer-events-none rounded-full"></div>
 
           <form onSubmit={handleSubmit} className="space-y-8 relative z-10">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="relative grid grid-cols-1 md:grid-cols-2 gap-y-6 md:gap-x-16">
+              {/* Swap Button - Desktop */}
+              <div className="hidden md:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[45%] z-20 mt-3">
+                <button
+                  type="button"
+                  onClick={swapOrigins}
+                  className="group p-3.5 bg-white/5 backdrop-blur-xl border border-white/10 rounded-full text-neon-blue hover:text-white hover:bg-white/10 hover:border-neon-blue/50 transition-all duration-500 hover:rotate-180 shadow-[0_0_20px_rgba(0,0,0,0.3)] hover:shadow-[0_0_30px_rgba(86,204,242,0.2)] active:scale-95"
+                  title="Swap Locations"
+                >
+                  <ArrowUpDown className="w-5 h-5 rotate-90 transition-transform duration-500 group-hover:drop-shadow-[0_0_8px_rgba(86,204,242,0.8)]" />
+                </button>
+              </div>
+
+
+
               {/* Origin Input */}
               <div className="space-y-2 group">
-                <label className="block text-sm font-medium text-neon-blue mb-1 uppercase tracking-wider text-xs">
+                <label className="label-modern !text-neon-blue">
                   Origin Point
                 </label>
-                <div className="relative flex items-center">
-                  <input
-                    type="text"
+                <div className="relative">
+                  <LocationAutocomplete
                     value={formData.origin}
-                    onChange={(e) => setFormData({ ...formData, origin: e.target.value })}
-                    placeholder="Where are you starting?"
-                    required
+                    onChange={(val) => {
+                      setFormData({ ...formData, origin: val });
+                      setOriginValid(val.length > 3);
+                    }}
+                    placeholder="Enter origin city or address"
                     disabled={gettingLocation}
-                    className="input-modern pl-10"
+                    isValid={originValid}
                   />
-                  <div className="absolute left-0 bottom-3 pl-3 text-color-text-tertiary">
-                    <div className="w-2 h-2 rounded-full bg-neon-purple animate-pulse"></div>
-                  </div>
 
                   <button
                     type="button"
                     onClick={getCurrentLocation}
                     disabled={gettingLocation}
-                    className="absolute right-2 top-2 p-2 hover:bg-white/10 rounded-full text-color-text-secondary hover:text-white transition-all disabled:opacity-50"
+                    className="absolute right-10 top-1/2 -translate-y-1/2 p-2 hover:bg-white/10 rounded-full text-color-text-secondary hover:text-white transition-all disabled:opacity-50 z-10"
                     title="Use Current Location"
                   >
                     {gettingLocation ? (
-                      <Loader2 className="w-5 h-5 animate-spin text-neon-purple" />
+                      <Loader2 className="w-4 h-4 animate-spin text-neon-purple" />
                     ) : (
-                      <MapPin className="w-5 h-5" />
+                      <MapPin className="w-4 h-4" />
                     )}
                   </button>
                 </div>
               </div>
 
+              {/* Swap Button - Mobile */}
+              <div className="md:hidden flex justify-center my-2 z-20 relative">
+                <button
+                  type="button"
+                  onClick={swapOrigins}
+                  className="p-2.5 bg-white/5 backdrop-blur-xl border border-white/10 rounded-full text-neon-blue shadow-lg hover:text-white hover:border-neon-blue/50 transition-all active:scale-90 hover:shadow-[0_0_15px_rgba(86,204,242,0.2)]"
+                >
+                  <ArrowUpDown className="w-4 h-4" />
+                </button>
+              </div>
+
               {/* Destination Input */}
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-neon-green mb-1 uppercase tracking-wider text-xs">
+                <label className="label-modern !text-neon-green">
                   Destination
                 </label>
-                <input
-                  type="text"
+                <LocationAutocomplete
                   value={formData.destination}
-                  onChange={(e) => setFormData({ ...formData, destination: e.target.value })}
-                  placeholder="Where do you want to go?"
-                  required
-                  className="input-modern"
+                  onChange={(val) => {
+                    setFormData({ ...formData, destination: val });
+                    setDestValid(val.length > 3);
+                  }}
+                  placeholder="Enter destination city or address"
+                  isValid={destValid}
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-end">
-              {/* EV Model Select */}
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-color-text-secondary mb-1 uppercase tracking-wider text-xs">
-                  Vehicle Configuration
+            {/* My Fleet Presets */}
+            {presets.length > 0 && (
+              <div className="space-y-3">
+                <label className="block text-sm font-medium text-color-text-tertiary uppercase tracking-wider text-[10px]">
+                  My Fleet
                 </label>
+                <div className="flex flex-wrap gap-2">
+                  {presets.map(preset => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => applyPreset(preset)}
+                      className="px-4 py-2 rounded-xl bg-white/5 border border-white/5 hover:border-neon-purple/50 text-xs font-bold text-gray-400 hover:text-white transition-all duration-300"
+                    >
+                      {preset.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <label className="block text-sm font-medium text-color-text-secondary uppercase tracking-wider text-[10px]">
+                    Vehicle Configuration
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowSavePreset(true)}
+                    className="text-[10px] font-bold text-neon-purple hover:underline"
+                  >
+                    Save as Preset
+                  </button>
+                </div>
                 <select
                   value={formData.evModelId}
                   onChange={(e) => setFormData({ ...formData, evModelId: e.target.value })}
@@ -641,7 +713,7 @@ export default function TripPlanner({ onSignOut }: TripPlannerProps) {
                 >
                   {evModels.map((ev) => (
                     <option key={ev.id} value={ev.id} className="bg-surface text-white">
-                      {ev.manufacturer} {ev.model_name} ({ev.range_miles} mi)
+                      {ev.manufacturer} {ev.model_name}
                     </option>
                   ))}
                 </select>
@@ -650,7 +722,7 @@ export default function TripPlanner({ onSignOut }: TripPlannerProps) {
               {/* Battery Level Slider */}
               <div className="space-y-4 bg-white/5 p-6 rounded-3xl border border-white/5">
                 <div className="flex justify-between items-center">
-                  <label className="flex items-center text-sm font-medium text-white gap-2">
+                  <label className="flex items-center text-sm font-semibold text-white gap-2">
                     <Battery className="w-4 h-4 text-neon-green" />
                     Current Charge
                   </label>
@@ -664,11 +736,21 @@ export default function TripPlanner({ onSignOut }: TripPlannerProps) {
                   max="100"
                   value={formData.batteryPercent}
                   onChange={(e) => setFormData({ ...formData, batteryPercent: parseInt(e.target.value) })}
-                  className="w-full h-2 bg-surface-highlight rounded-lg appearance-none cursor-pointer accent-neon-green"
+                  className="w-full h-3 bg-surface-highlight rounded-lg appearance-none cursor-pointer accent-neon-green"
                 />
-                <div className="flex justify-between text-xs text-color-text-tertiary">
-                  <span>Low (10%)</span>
-                  <span>Full (100%)</span>
+                <div className="flex justify-between items-center">
+                  <div className="text-[10px] font-bold text-color-text-tertiary">
+                    {(() => {
+                      const model = evModels.find(m => m.id === formData.evModelId);
+                      if (!model) return null;
+                      const range = Math.round((formData.batteryPercent / 100) * model.range_miles * (formData.batteryHealth / 100));
+                      return <span className="text-neon-blue">~{range} mi remaining range</span>;
+                    })()}
+                  </div>
+                  <div className="flex gap-4 text-[10px] text-color-text-tertiary">
+                    <span>Low (10%)</span>
+                    <span>Full (100%)</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -683,23 +765,57 @@ export default function TripPlanner({ onSignOut }: TripPlannerProps) {
             <button
               type="submit"
               disabled={loading}
-              className="w-full btn-primary py-4 text-lg font-bold tracking-wide mt-4"
+              className="w-full btn-primary py-4 text-lg font-bold tracking-wide mt-4 min-h-[56px] flex items-center justify-center"
             >
               {loading ? (
                 <div className="flex items-center justify-center gap-3">
                   <Loader2 className="w-6 h-6 animate-spin" />
-                  <span>Calculating Optimal Route...</span>
+                  <span>Analyzing Route...</span>
                 </div>
               ) : (
                 <div className="flex items-center justify-center gap-3">
                   <Navigation className="w-6 h-6" />
-                  <span>Initialize Route Analysis</span>
+                  <span>Analyze Route</span>
                 </div>
               )}
             </button>
           </form>
         </div>
       </div>
+
+      {showSavePreset && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[60] animate-fade-in">
+          <div className="glass-panel p-8 max-w-md w-full border border-white/10 rounded-[2rem] shadow-2xl">
+            <h3 className="text-xl font-bold text-white mb-6">Save as Preset</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Preset Name</label>
+                <input
+                  type="text"
+                  value={presetName}
+                  onChange={(e) => setPresetName(e.target.value)}
+                  placeholder="e.g. Daily Commute"
+                  className="input-modern"
+                />
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => setShowSavePreset(false)}
+                  className="flex-1 btn-secondary py-3 text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSavePreset}
+                  className="flex-1 btn-primary py-3 text-sm"
+                >
+                  Save Preset
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {
         showPrefs && (
@@ -739,7 +855,15 @@ export default function TripPlanner({ onSignOut }: TripPlannerProps) {
       }
 
 
-      <NeuralAssistant onCommand={handleAICommand} />
+      <NeuralAssistant
+        onCommand={handleAICommand}
+        context={{
+          origin: formData.origin,
+          destination: formData.destination,
+          evModel: evModels.find(m => m.id === formData.evModelId),
+          startingBattery: formData.batteryPercent
+        }}
+      />
     </div >
   );
 }

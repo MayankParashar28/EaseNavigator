@@ -29,7 +29,7 @@ export interface TrafficRoute {
 
 export interface TrafficIncident {
   id: string;
-  type: 'accident' | 'construction' | 'closure' | 'hazard' | 'other';
+  type: 'accident' | 'construction' | 'closure' | 'hazard' | 'weather' | 'other';
   severity: 'low' | 'medium' | 'high' | 'severe';
   description: string;
   location: {
@@ -39,6 +39,12 @@ export interface TrafficIncident {
   startTime: string;
   endTime?: string;
   impact: 'minor' | 'moderate' | 'major';
+  delayMinutes?: number;
+  avoidanceMetrics?: {
+    extraTime: number;
+    costSaving: number;
+    efficiencyGain: number;
+  };
 }
 
 export interface TrafficAlert {
@@ -127,13 +133,55 @@ export class TrafficService {
         id: 'inc1',
         type: 'construction',
         severity: 'medium',
-        description: 'Road construction on I-95',
+        description: 'Road construction on I-95 North',
         location: {
-          latitude: (origin[0] + destination[0]) / 2 + (Math.random() - 0.5) * 0.01,
-          longitude: (origin[1] + destination[1]) / 2 + (Math.random() - 0.5) * 0.01
+          latitude: (origin[0] + destination[0]) / 2 + 0.002,
+          longitude: (origin[1] + destination[1]) / 2 + 0.002
         },
         startTime: new Date().toISOString(),
-        impact: 'moderate'
+        impact: 'moderate',
+        delayMinutes: 15,
+        avoidanceMetrics: {
+          extraTime: 12,
+          costSaving: 1.5,
+          efficiencyGain: 0.02
+        }
+      },
+      {
+        id: 'inc2',
+        type: 'accident',
+        severity: 'severe',
+        description: 'Multi-vehicle collision on Main Hwy',
+        location: {
+          latitude: (origin[0] + destination[0]) / 2 - 0.005,
+          longitude: (origin[1] + destination[1]) / 2 - 0.005
+        },
+        startTime: new Date().toISOString(),
+        impact: 'major',
+        delayMinutes: 25,
+        avoidanceMetrics: {
+          extraTime: 35,
+          costSaving: -2.0,
+          efficiencyGain: -0.05
+        }
+      },
+      {
+        id: 'inc3',
+        type: 'weather',
+        severity: 'medium',
+        description: 'Heavy Rain / Flood Warning',
+        location: {
+          latitude: (origin[0] + destination[0]) / 2 + 0.008,
+          longitude: (origin[1] + destination[1]) / 2 - 0.003
+        },
+        startTime: new Date().toISOString(),
+        impact: 'moderate',
+        delayMinutes: 8,
+        avoidanceMetrics: {
+          extraTime: 5,
+          costSaving: 0,
+          efficiencyGain: 0.08
+        }
       }
     ];
 

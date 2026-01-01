@@ -34,10 +34,10 @@ interface StatsBentoGridProps {
 
 export default function StatsBentoGrid({ results, selectedRoute, aiAnalysis, rangePrediction, loading }: StatsBentoGridProps) {
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
             {/* Route Overview */}
             <div className="glass-card p-6 border border-white/5 bg-surface/30 hover:bg-surface/50 transition-colors group relative overflow-hidden rounded-[2rem]">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-neon-purple/5 rounded-full blur-2xl group-hover:bg-neon-purple/10 transition-colors"></div>
+                <div className="absolute inset-0 bg-neon-blue/3 blur-3xl group-hover:bg-neon-blue/8 transition-colors"></div>
                 <div className="flex items-start justify-between mb-4 relative z-10">
                     <div className="p-3 bg-neon-purple/10 rounded-2xl border border-neon-purple/20">
                         <Battery className="w-5 h-5 text-neon-purple" />

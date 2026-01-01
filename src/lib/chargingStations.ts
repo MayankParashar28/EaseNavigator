@@ -119,7 +119,7 @@ export interface ProcessedChargingStation {
   operator?: string;
   website?: string;
   phone?: string;
-  
+
   // Enhanced data
   availablePorts?: number;
   totalPorts: number;
@@ -181,20 +181,20 @@ export class ChargingStationService {
   private processStationData(station: OpenChargeStation): ProcessedChargingStation {
     const address = station.AddressInfo;
     const connections = station.Connections || [];
-    
+
     // Find the highest power connection
-    const maxPowerConnection = connections.reduce((max, conn) => 
-      conn.PowerKW > max.PowerKW ? conn : max, 
+    const maxPowerConnection = connections.reduce((max, conn) =>
+      conn.PowerKW > max.PowerKW ? conn : max,
       connections[0] || { PowerKW: 0, ConnectionType: { Title: 'Unknown' }, Level: { IsFastChargeCapable: false }, Quantity: 1 }
     );
 
     // Calculate total ports
     const totalPorts = connections.reduce((sum, conn) => sum + (conn.Quantity || 1), 0);
-    
+
     // Generate enhanced data (simulated for demo purposes)
     const availablePorts = Math.floor(Math.random() * (totalPorts + 1));
     const estimatedWaitTime = availablePorts === 0 ? Math.floor(Math.random() * 30) + 5 : 0;
-    
+
     // Generate pricing data (simulated)
     const pricing = {
       perKWh: Math.round((Math.random() * 0.3 + 0.1) * 100) / 100, // $0.10 - $0.40 per kWh
@@ -265,7 +265,7 @@ export class ChargingStationService {
       operator: station.OperatorInfo?.Title,
       website: station.OperatorInfo?.WebsiteURL,
       phone: station.OperatorInfo?.PhonePrimaryContact,
-      
+
       // Enhanced data
       availablePorts,
       totalPorts,
@@ -283,18 +283,22 @@ export class ChargingStationService {
     latitude: number,
     longitude: number,
     radius: number = 10,
-    maxResults: number = 50
+    maxResults: number = 50,
+    preferredAmenities: string[] = []
   ): Promise<ProcessedChargingStation[]> {
     const cacheKey = `${latitude},${longitude},${radius}`;
     const cached = this.cache.get(cacheKey);
-    
+
     // Return cached data if still valid
     if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
       return cached.data;
     }
 
     try {
-      const url = new URL(`${OPENCHARGE_API_BASE}/poi/`);
+      const baseUrl = OPENCHARGE_API_BASE.startsWith('http')
+        ? OPENCHARGE_API_BASE
+        : `${window.location.origin}${OPENCHARGE_API_BASE}`;
+      const url = new URL(`${baseUrl}/poi/`);
       url.searchParams.set('output', 'json');
       url.searchParams.set('latitude', latitude.toString());
       url.searchParams.set('longitude', longitude.toString());
@@ -304,17 +308,30 @@ export class ChargingStationService {
       url.searchParams.set('key', OPENCHARGE_API_KEY);
 
       const response = await fetch(url.toString());
-      
+
       if (!response.ok) {
         throw new Error(`OpenChargeMap API error: ${response.status} ${response.statusText}`);
       }
 
       const data: OpenChargeStation[] = await response.json();
-      
+
       // Process and filter the data
       const processedStations = data
         .map(station => this.processStationData(station))
-        .filter(station => station.isOperational) // Only show operational stations
+        .filter(station => {
+          if (!station.isOperational) return false;
+          if (preferredAmenities.length === 0) return true;
+
+          // Check if station has at least one of the preferred amenities
+          return preferredAmenities.some(amenity => {
+            const a = station.amenities as any;
+            if (amenity === 'restrooms') return a?.restrooms;
+            if (amenity === 'food') return a?.foodNearby;
+            if (amenity === 'shopping') return a?.shopping;
+            if (amenity === 'wifi') return a?.wifi;
+            return true;
+          });
+        })
         .sort((a, b) => a.distance - b.distance); // Sort by distance
 
       // Cache the results
@@ -326,7 +343,7 @@ export class ChargingStationService {
       return processedStations;
     } catch (error) {
       console.error('Error fetching charging stations:', error);
-      
+
       // Return empty array on error, but don't cache the error
       return [];
     }
@@ -334,7 +351,8 @@ export class ChargingStationService {
 
   async getChargingStationsAlongRoute(
     routeGeometry: [number, number][],
-    radius: number = 6.2 // 10km in miles
+    radius: number = 6.2, // 10km in miles
+    preferredAmenities: string[] = []
   ): Promise<ProcessedChargingStation[]> {
     if (!routeGeometry || routeGeometry.length === 0) {
       return [];
@@ -342,7 +360,7 @@ export class ChargingStationService {
 
     try {
       // Sample points along the route (every 10th point or at least 5 points)
-      const samplePoints = routeGeometry.filter((_, index) => 
+      const samplePoints = routeGeometry.filter((_, index) =>
         index % Math.max(1, Math.floor(routeGeometry.length / 5)) === 0
       );
 
@@ -350,7 +368,7 @@ export class ChargingStationService {
 
       // Fetch stations for each sample point
       for (const [lat, lng] of samplePoints) {
-        const stations = await this.getChargingStations(lat, lng, radius, 20);
+        const stations = await this.getChargingStations(lat, lng, radius, 20, preferredAmenities);
         stations.forEach(station => {
           allStations.set(station.id, station);
         });

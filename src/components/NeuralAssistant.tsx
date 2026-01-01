@@ -1,51 +1,34 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { Mic, Send, Sparkles, X, Loader2, BrainCircuit } from 'lucide-react';
-import { parseTripCommand, type ParsedTripCommand } from '../lib/ai';
-
-interface Window {
-    webkitSpeechRecognition: any;
-    SpeechRecognition: any;
-}
-
-declare let window: Window;
+import { type ParsedTripCommand, getChatResponse, type ChatMessage } from '../lib/ai';
+import { EVModel } from '../lib/localStorage';
+import { RouteWithGeom } from './RouteMap';
 
 interface NeuralAssistantProps {
     onCommand: (command: ParsedTripCommand) => void;
     className?: string;
+    context?: {
+        origin?: string;
+        destination?: string;
+        evModel?: EVModel;
+        routes?: RouteWithGeom[];
+        startingBattery?: number;
+    };
 }
 
-export default function NeuralAssistant({ onCommand, className = '' }: NeuralAssistantProps) {
+export default function NeuralAssistant({ onCommand, context, className = '' }: NeuralAssistantProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [input, setInput] = useState('');
     const [isListening, setIsListening] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
-    // @ts-expect-error - non-standard web API
+    const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const scrollRef = useRef<HTMLDivElement>(null);
     const recognitionRef = useRef<any>(null);
 
-    useEffect(() => {
-        const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
-        if (SpeechRecognition) {
-            recognitionRef.current = new SpeechRecognition();
-            const recognition = recognitionRef.current!;
-            recognition.continuous = false;
-            recognition.interimResults = false;
+    const suggestions = context?.routes?.length
+        ? ["Avoid tolls", "Minimize charging cost", "Explain this route", "Plan for winter"]
+        : ["Plan a trip to SF", "Go from NY to DC", "Scenic route to LA"];
 
-            recognition.onresult = (event: any) => {
-                const transcript = event.results[0][0].transcript;
-                setInput(transcript);
-                setIsListening(false);
-                handleSubmit(transcript);
-            };
-
-            recognition.onerror = () => {
-                setIsListening(false);
-            };
-
-            recognition.onend = () => {
-                setIsListening(false);
-            };
-        }
-    }, []);
 
     const toggleListening = () => {
         if (isListening) {
@@ -60,14 +43,36 @@ export default function NeuralAssistant({ onCommand, className = '' }: NeuralAss
     const handleSubmit = async (text: string) => {
         if (!text.trim()) return;
 
+        const userMsg: ChatMessage = {
+            role: 'user',
+            content: text,
+            timestamp: new Date().toLocaleTimeString()
+        };
+        setMessages(prev => [...prev, userMsg]);
+        setInput('');
         setIsProcessing(true);
-        const result = await parseTripCommand(text);
-        setIsProcessing(false);
 
-        if (result) {
-            onCommand(result);
-            setIsOpen(false);
-            setInput('');
+        try {
+            const { response, command } = await getChatResponse({
+                text,
+                history: messages,
+                context
+            });
+
+            const assistantMsg: ChatMessage = {
+                role: 'assistant',
+                content: response,
+                timestamp: new Date().toLocaleTimeString()
+            };
+            setMessages(prev => [...prev, assistantMsg]);
+
+            if (command) {
+                onCommand(command);
+            }
+        } catch (err) {
+            console.error("Assistant error", err);
+        } finally {
+            setIsProcessing(false);
         }
     };
 
@@ -104,44 +109,96 @@ export default function NeuralAssistant({ onCommand, className = '' }: NeuralAss
                 </div>
 
                 {/* Body */}
-                <div className="p-6 space-y-4">
-                    <p className="text-color-text-secondary text-sm">
-                        Describe your trip naturally. For example:
-                        <br />
-                        <span className="text-neon-blue italic">"Plan a trip from San Francisco to LA avoiding highways."</span>
-                    </p>
+                <div className="flex flex-col h-[500px]">
+                    <div
+                        ref={scrollRef}
+                        className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar"
+                    >
+                        {messages.length === 0 && (
+                            <div className="text-center py-8 space-y-4">
+                                <div className="w-16 h-16 bg-neon-purple/10 rounded-full flex items-center justify-center mx-auto">
+                                    <Sparkles className="w-8 h-8 text-neon-purple" />
+                                </div>
+                                <div>
+                                    <h4 className="text-white font-bold text-lg">Neural Assistant</h4>
+                                    <p className="text-color-text-secondary text-sm px-8">
+                                        Your EV co-pilot. I can plan routes, optimize charging, and explain travel metrics.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
 
-                    <div className="relative">
-                        <textarea
-                            value={input}
-                            onChange={(e) => setInput(e.target.value)}
-                            placeholder="Where would you like to go?"
-                            className="w-full bg-surface-highlight border border-white/10 rounded-xl p-4 pr-12 text-white placeholder-gray-500 focus:outline-none focus:border-neon-purple min-h-[100px] resize-none"
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' && !e.shiftKey) {
-                                    e.preventDefault();
-                                    handleSubmit(input);
-                                }
-                            }}
-                        />
-
-                        <div className="absolute bottom-3 right-3 flex gap-2">
-                            {recognitionRef.current && (
-                                <button
-                                    onClick={toggleListening}
-                                    className={`p-2 rounded-lg transition-all ${isListening ? 'bg-red-500/20 text-red-400 animate-pulse' : 'hover:bg-white/10 text-gray-400 hover:text-white'}`}
-                                    title="Voice Input"
-                                >
-                                    <Mic className="w-5 h-5" />
-                                </button>
-                            )}
-                            <button
-                                onClick={() => handleSubmit(input)}
-                                disabled={!input.trim() || isProcessing}
-                                className="p-2 bg-neon-purple hover:bg-neon-purple/80 text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        {messages.map((m, i) => (
+                            <div
+                                key={i}
+                                className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}
                             >
-                                {isProcessing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-                            </button>
+                                <div className={`max-w-[85%] rounded-2xl p-4 ${m.role === 'user'
+                                    ? 'bg-neon-purple text-white rounded-tr-none shadow-[0_5px_15px_rgba(127,90,240,0.3)]'
+                                    : 'bg-white/5 border border-white/10 text-gray-200 rounded-tl-none'
+                                    }`}>
+                                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{m.content}</p>
+                                    <span className="text-[10px] opacity-40 mt-2 block">{m.timestamp}</span>
+                                </div>
+                            </div>
+                        ))}
+                        {isProcessing && (
+                            <div className="flex justify-start animate-pulse">
+                                <div className="bg-white/5 border border-white/10 rounded-2xl rounded-tl-none p-4 flex gap-2">
+                                    <span className="w-2 h-2 bg-neon-purple rounded-full animate-bounce"></span>
+                                    <span className="w-2 h-2 bg-neon-blue rounded-full animate-bounce [animation-delay:0.2s]"></span>
+                                    <span className="w-2 h-2 bg-neon-green rounded-full animate-bounce [animation-delay:0.4s]"></span>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="p-4 bg-white/5 border-t border-white/5 space-y-4">
+                        {/* Suggestions */}
+                        <div className="flex flex-wrap gap-2">
+                            {suggestions.map((s, i) => (
+                                <button
+                                    key={i}
+                                    onClick={() => handleSubmit(s)}
+                                    className="px-3 py-1.5 rounded-full bg-surface-highlight border border-white/5 hover:border-neon-blue/50 text-[11px] font-medium text-gray-400 hover:text-neon-blue transition-all"
+                                >
+                                    {s}
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="relative">
+                            <textarea
+                                value={input}
+                                onChange={(e) => setInput(e.target.value)}
+                                placeholder="Where would you like to go?"
+                                className="w-full bg-surface-highlight border border-white/10 rounded-xl p-3 pr-12 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-neon-purple min-h-[50px] max-h-[150px] resize-none"
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                        e.preventDefault();
+                                        handleSubmit(input);
+                                    }
+                                }}
+                            />
+
+                            <div className="absolute bottom-2.5 right-2.5 flex gap-2">
+                                {recognitionRef.current && (
+                                    <button
+                                        onClick={toggleListening}
+                                        className={`p-1.5 rounded-lg transition-all ${isListening ? 'bg-red-500/20 text-red-400 animate-pulse' : 'hover:bg-white/10 text-gray-400 hover:text-white'}`}
+                                        title="Voice Input"
+                                    >
+                                        <Mic className="w-4 h-4" />
+                                    </button>
+                                )}
+                                <button
+                                    onClick={() => handleSubmit(input)}
+                                    disabled={!input.trim() || isProcessing}
+                                    className="p-1.5 bg-neon-purple hover:bg-neon-purple/80 text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
