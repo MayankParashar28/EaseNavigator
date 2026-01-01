@@ -1,38 +1,35 @@
-# ⚡ EaseNavigator – AI-Powered EV Route Planner
+# ⚡ EaseNavigator AI: Intelligent EV Trip Optimization
 
 > **Smart, sustainable, and data-driven travel for electric vehicle users.**
 
-EaseNavigator is an intelligent route planner built for electric vehicle (EV) users.  
+EaseNavigator AI is an intelligent route planner built for electric vehicle (EV) users.  
 It combines real-time data, smart energy predictions, and AI-powered optimization to plan the most efficient and eco-friendly trip possible — while keeping users informed about charging stations, traffic, and environmental conditions along the way.
 
 ---
 
-## 🚀 Features
+## 🚀 Key Features
 
-### 🔋 Smart Trip Planning
-- Enter your **origin**, **destination**, and **current battery percentage**.
-- Select your **EV model** to get accurate predictions based on real efficiency data.
-- Get the **best route options** with distance, time, estimated energy use, and recharging stops.
+### 🧠 Neural Assistant
+- **Natural Language Input**: Plan your trip by simply describing it (e.g., "Plan a trip from San Francisco to LA avoiding highways").
 
-### 🧭 Live Location Support
-- Instantly detect your **current location** using geolocation.
-- Automatically set your origin without typing your address.
+- **AI Intent Parsing**: Uses Google Gemini to extract origin, destination, and preferences from natural language.
 
-### ⚡ Real-Time Data Integration
-- Fetch **real-time EV charging stations** along your route using OpenChargeMap API.
-- Integrated structure for **live traffic**, **weather**, and **road conditions** (future-ready setup).
+### 🔋 Smart Route Analysis
+- **Weather Integration**: Automatically fetches weather data for the start, mid-point, and end of your journey to predict range impact.
+- **Battery Usage Intelligence**: Deep analysis of battery consumption based on model-specific efficiency and environmental factors.
+- **Alternative Routes**: Compare multiple route options based on time, battery usage, and charging needs.
 
-### 🧠 AI & Predictive Intelligence
-- Predicts **battery consumption** using model-specific efficiency data.
-- Built for future **machine learning integration** to improve range estimation and route optimization.
+### ✈️ 3D Cinematic Flyover
+- **Route Visualization**: Experience a cinematic 3D flyover of your planned route before you even start the car.
+- **Interactive Map**: Toggle between 2D, 3D (tilt/heading), and satellite views with live traffic overlays.
 
-### 📚 Trip History & Analytics
-- Every trip is automatically saved to your browser's **Local Storage**.
-- View, replan, or analyze past trips directly from the dashboard.
+### ⚡ AI-Powered Charging Insights
+- **Smart Summaries**: Get AI-generated "pitches" for charging stations, highlighting nearby amenities and the best spots to take a break.
+- **Fast Charge Identification**: Instantly see high-power chargers vs. standard ones.
 
-### ⚙️ User Preferences
-- Save your preferred EV model and default settings.
-- Adjust **battery buffer** and auto-fill defaults for quicker planning.
+### 🏎️ My Garage
+- **Vehicle Management**: Save and manage your preferred EV model with real-time range and battery capacity tracking.
+- **Battery Health Tracking**: Adjust for battery degradation to get even more accurate range estimates.
 
 ---
 
@@ -40,79 +37,64 @@ It combines real-time data, smart energy predictions, and AI-powered optimizatio
 
 | Area | Technology | Description |
 |------|-------------|-------------|
-| Frontend | **React + TypeScript** | Modular, scalable, and type-safe UI |
-| Backend & Storage | **Local Storage** | Browser-based persistent storage for user data |
-| Styling | **Tailwind CSS** | Modern responsive design |
-| Icons | **Lucide React** | Lightweight vector icons |
-| Build Tool | **Vite** | Fast bundler and dev server |
+| **Frontend** | React + TypeScript | Modular, scalable, and type-safe UI |
+| **AI Engine** | Google Gemini (1.5 Flash) | Natural language parsing and intelligent recommendations |
+| **Mapping** | Google Maps Platform | Advanced markers, directions, and 3D vector maps |
+| **Routing** | OSRM (Open Source Routing Machine) | Optimized driving routes with multiple alternatives |
+| **Geocoding** | Nominatim (OpenStreetMap) | High-accuracy address resolution |
+| **Charging Data** | OpenChargeMap API | Comprehensive global database of charging stations |
+| **Weather** | Open-Meteo | Real-time weather impact analysis |
+| **Styling** | Tailwind CSS | Modern, responsive, and aesthetic design |
 
 ---
 
-## 🌍 APIs & Integrations
+## 🌍 Setup & APIs
 
-| API / Service | Purpose | Type |
-|----------------|----------|------|
-| **OpenStreetMap (Nominatim)** | Converts place names to coordinates | Geocoding |
-| **OSRM (Open Source Routing Machine)** | Provides optimized driving routes | Routing |
-| **OpenChargeMap** | Finds nearby charging stations | EV Charging API |
-| **Local Storage** | Stores trips, preferences, and session data | Browser Storage |
-| *(Optional)* OpenRoute / TomTom APIs | For live traffic and travel times | Traffic (future-ready) |
+To run Neural Navigator locally, you'll need to set up the following environment variables in a `.env` file:
+
+```env
+VITE_GOOGLE_MAPS_API_KEY=your_google_maps_key
+VITE_GEMINI_API_KEY=your_gemini_api_key
+VITE_OCM_API_KEY=your_openchargemap_api_key
+```
+
+### ⚙️ Installation
+
+1. **Clone the repo**
+   ```bash
+   git clone https://github.com/<your-username>/NeuralNavigator.git
+   cd NeuralNavigator
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Run the development server**
+   ```bash
+   npm run dev
+   ```
 
 ---
 
 ## 🧱 Project Structure
 
-EaseNavigator/
-│
+```text
+NeuralNavigator/
 ├── src/
 │   ├── components/
-│   │   ├── TripPlanner.tsx        # Main trip planning component
-│   │   ├── TripResults.tsx        # Displays optimized routes
-│   │   ├── TripHistory.tsx        # Past trip records
-│   │   ├── UserPreferences.tsx    # Settings for EV model & defaults
-│   │
+│   │   ├── NeuralAssistant.tsx    # AI Voice/Text command center
+│   │   ├── RouteMap.tsx           # 3D Map & Flyover engine
+│   │   ├── TripPlanner.tsx        # Main orchestration logic
+│   │   ├── TripResults.tsx        # Analytics & bento-grid stats
+│   │   └── UserPreferences.tsx    # "My Garage" management
 │   ├── lib/
-│   │   ├── localStorage.ts        # Local DB and auth functions
-│   │   └── apiConfig.ts           # API configuration and keys
-│   │
-│   ├── App.tsx                    # App entry point
-│   ├── main.tsx                   # React root
-│   └── index.css                  # Global styles
-│
-├── public/
-│   └── favicon.ico
-│
-├── .env                           # Environment variables
-├── package.json                   # Dependencies
-└── README.md                      # Documentation
-
-
-
-⚙️ How It Works
-	1.	User Input:
-The user provides origin, destination, EV model, and battery level.
-	2.	Data Fetching:
-	•	Location geocoding via OpenStreetMap
-	•	Route calculation using OSRM
-	•	Charging station data from OpenChargeMap
-	3.	Computation:
-	•	Estimates battery consumption and charging needs
-	•	Calculates distance, duration, cost, and energy use
-	4.	Display:
-	•	Presents optimized routes with detailed info
-	•	Saves trip data for analytics and history
-
-
-💻 Installation
-# Clone the repo
-git clone https://github.com/<your-username>/EaseNavigator.git
-
-# Navigate to the project folder
-cd EaseNavigator
-
-# Install dependencies
-npm install
-
-# Run the app
-npm run dev
+│   │   ├── ai.ts                  # Gemini integration layer
+│   │   ├── weatherService.ts      # Environmental calculations
+│   │   └── localStorage.ts        # Persistent storage & auth
+│   └── main.tsx                   # App entry
+└── package.json                   # Project configuration
+```
+```
 
