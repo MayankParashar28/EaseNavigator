@@ -7,37 +7,34 @@ It combines real-time data, smart energy predictions, and AI-powered optimizatio
 
 ---
 
-## 🚀 Key Features
+##  Key Features
 
-### 🧠 Neural Assistant
-- **Natural Language Input**: Plan your trip by simply describing it (e.g., "Plan a trip from San Francisco to LA avoiding highways").
-- **AI Intent Parsing**: Uses Google Gemini to extract origin, destination, and preferences from natural language.
 
-### 🗺️ Immersive Route Experience
+### Immersive Route Experience
 - **Cinematic 3D Flyover**: Experience a stunning preview of your route with simulated drone footage alongside the live map.
 - **Full-Responsive Map**: A dynamically resizing map engine (450px on mobile, 600px+ on desktop) that ensures optimal visibility on any device.
 - **Interactive Controls**: Deep integration with traffic layers, incidents, and points of interest.
 
-### 📅 Next-Gen Journey Timeline
+### Next-Gen Journey Timeline
 - **"Heads-Up" Journey Plan**: A distinct, horizontal timeline view that separates your itinerary from the map for clarity.
 - **Dynamic Battery Visualization**: Real-time SOC (State of Charge) indicators with color-coded alerts (Green/Yellow/Red) based on battery health.
 - **Interactive Stop Cards**: Detailed "Stop Boxes" showing amenities, wait times, and charging speeds—now fully responsive and compact.
 
-### ⚡ Stable Data Simulation
+###  Stable Data Simulation
 - **Consistent World State**: Amenities (Restrooms, WiFi, Food) and Traffic Levels are pseudo-randomly consolidated. Revisiting a station always yields the same data, preventing "flicker" and ensuring a realistic demo experience.
 - **Traffic Awareness**: Red/Yellow connecting lines on the timeline reflect real-time traffic segments between stops.
 
-### 🏎️ My Garage
+###  My Garage
 - **Vehicle Management**: Save and manage your preferred EV model with real-time range and battery capacity tracking.
 - **Battery Health Tracking**: Adjust for battery degradation to get even more accurate range estimates.
 
-### 🎨 Premium UI/UX
+###  Premium UI/UX
 - **Glassmorphism Design**: Modern, translucent interface elements that float over the content.
 - **Responsive Layouts**: A grid system that intelligently stacks mapping and timeline components for mobile users while expanding for desktop dashboards.
 
 ---
 
-## 🧩 Tech Stack
+##  Tech Stack
 
 | Area | Technology | Description |
 |------|-------------|-------------|
@@ -52,7 +49,7 @@ It combines real-time data, smart energy predictions, and AI-powered optimizatio
 
 ---
 
-## 🌍 Setup & APIs
+##  Setup & APIs
 
 To run Neural Navigator locally, you'll need to set up the following environment variables in a `.env` file:
 
@@ -62,7 +59,7 @@ VITE_GEMINI_API_KEY=your_gemini_api_key
 VITE_OCM_API_KEY=your_openchargemap_api_key
 ```
 
-### ⚙️ Installation
+###  Installation
 
 1. **Clone the repo**
    ```bash
@@ -82,7 +79,7 @@ VITE_OCM_API_KEY=your_openchargemap_api_key
 
 ---
 
-## 🧱 Project Structure
+##  Project Structure
 
 ```text
 NeuralNavigator/
