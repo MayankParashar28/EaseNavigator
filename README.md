@@ -34,6 +34,92 @@ It combines real-time data, smart energy predictions, and AI-powered optimizatio
 
 ---
 
+## System Architecture (DFD)
+
+### Context Diagram (Level 0)
+The system aggregates data from multiple external sources (Google Maps, Open Charge Map, OpenWeather) and processes it through the Gemini AI Engine to provide optimized trip plans.
+
+```mermaid
+graph LR
+    User[User] -- "User Credentials, Trip Criteria, Preferences" --> System((Neural Navigator System))
+    System -- "Optimized Route, Charging Plan, AI Insights" --> User
+
+    System -- "Route Request" --> GMaps[Google Maps API]
+    GMaps -- "Route Geometry, Traffic Data" --> System
+
+    System -- "Location, Radius" --> OCM[Open Charge Map API]
+    OCM -- "Charging Station Data" --> System
+
+    System -- "Location, Time" --> Weather[OpenWeather API]
+    Weather -- "Weather Conditions" --> System
+
+    System -- "Trip Context, Route Data" --> Gemini[Google Gemini AI]
+    Gemini -- "Optimization, Recommendations, Chat Response" --> System
+```
+
+### Data Flow Diagram (Level 1)
+Detailed breakdown of how user inputs flow through the routing engine, station discovery, and AI optimization layers.
+
+```mermaid
+graph TD
+    %% Entities
+    User[User]
+    GMaps[Google Maps API]
+    OCM[Open Charge Map API]
+    Weather[OpenWeather API]
+    Gemini[Google Gemini AI]
+    
+    %% Data Stores
+    LocalStorage[(Local Storage / User Profile)]
+    Cache[(Station Cache)]
+
+    %% Processes
+    P1(1. Authenticate User)
+    P2(2. Manage Trip Settings)
+    P3(3. Route Planning)
+    P4(4. Station Discovery)
+    P5(5. Environmental Analysis)
+    P6(6. AI Optimization)
+    P7(7. Presentation Layer)
+
+    %% Flows
+    User -- "Login/Signup" --> P1
+    P1 -- "User ID" --> LocalStorage
+    LocalStorage -- "User Profile" --> P1
+    P1 -- "Auth Token / User State" --> P2
+
+    User -- "Origin, Destination, EV Model" --> P2
+    P2 -- "Trip Criteria" --> P3
+    
+    P3 -- "Get Route" --> GMaps
+    GMaps -- "Route Data" --> P3
+    P3 -- "Route Geometry" --> P4
+    
+    P4 -- "Get Nearby Stations" --> OCM
+    OCM -- "Station Data" --> P4
+    P4 -- "Cache Data" --> Cache
+    Cache -- "Cached Stations" --> P4
+    
+    P3 -- "Route Waypoints" --> P5
+    P5 -- "Get Weather" --> Weather
+    Weather -- "Weather Conditions" --> P5
+    
+    P3 -- "Route Info" --> P6
+    P4 -- "Station Options" --> P6
+    P5 -- "Weather Impact" --> P6
+    User -- "Chat/Preferences" --> P6
+    
+    P6 -- "Analyze Trip / Chat" --> Gemini
+    Gemini -- "Recommendations / Optimization" --> P6
+    
+    P3 -- "Route Visuals" --> P7
+    P4 -- "Station Markers" --> P7
+    P6 -- "AI Insights" --> P7
+    P7 -- "Trip Plan / Map UI" --> User
+```
+
+---
+
 ##  Tech Stack
 
 | Area | Technology | Description |
@@ -97,5 +183,3 @@ NeuralNavigator/
 │   └── main.tsx                   # App entry
 └── package.json                   # Project configuration
 ```
-```
-
