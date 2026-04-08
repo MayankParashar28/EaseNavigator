@@ -20,7 +20,7 @@ export default function Auth() {
       : await signIn(email, password);
 
     if (authError) {
-      setError(authError.message);
+      setError(authError);
     }
     setLoading(false);
   };

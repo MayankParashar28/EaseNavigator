@@ -113,8 +113,10 @@ interface RouteMapProps {
   onSelectStation?: (station: Station | null) => void;
 }
 
-// Map ID is required for Advanced Markers and Vector Maps (3D)
-const MAP_ID = 'bf51a910020fa25a';
+// mapId removed — demo ID 'bf51a910020fa25a' only works with Google's demo key.
+// To use AdvancedMarkers / cloud map styles, add your own Map ID in Google Cloud Console
+// and set VITE_GOOGLE_MAPS_MAP_ID in .env
+const MAP_ID = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID || undefined;
 
 const DARK_MAP_STYLE = [
   { elementType: "geometry", stylers: [{ color: "#1a1c1e" }] },
@@ -366,8 +368,12 @@ function UserLocationMarker() {
   const [position, setPosition] = useState<google.maps.LatLngLiteral | null>(null);
 
   useEffect(() => {
-    // Mock user location for demo
-    setPosition({ lat: 34.4208, lng: -119.6982 }); // Santa Barbara area
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        (err) => console.error("Could not get user location", err)
+      );
+    }
   }, []);
 
   if (!position) return null;
@@ -470,13 +476,15 @@ function FlyoverController({
   isPlaying,
   speedMultiplier = 1,
   onMetricsUpdate,
-  onStop
+  onStop,
+  totalDistance = 150
 }: {
   routeGeometry: [number, number][],
   isPlaying: boolean,
   speedMultiplier?: number,
   onMetricsUpdate?: (metrics: { speed: number, efficiency: number, milesRemaining: number, currentSoC: number, progress: number }) => void,
-  onStop: () => void
+  onStop: () => void,
+  totalDistance?: number
 }) {
   const map = useMap();
 
@@ -527,7 +535,7 @@ function FlyoverController({
         onMetricsUpdate({
           speed: Math.round(65 + Math.random() * 5),
           efficiency: 0.25 + Math.random() * 0.1,
-          milesRemaining: Math.round((1 - progress) * 150), // Mock 150mi total
+          milesRemaining: Math.max(0, Math.round((1 - progress) * totalDistance)),
           currentSoC: Math.max(15, 80 - progress * 65), // Starts at 80, drops to 15
           progress
         });
@@ -1076,16 +1084,15 @@ export default function RouteMap({
       {/* Header */}
 
 
-      <div className="flex-1 relative">
+      <div className="flex-1 relative map-mask-edges">
         <APIProvider apiKey={apiKey}>
           <Map
             defaultCenter={center}
             defaultZoom={11}
             defaultHeading={0}
             defaultTilt={0}
-            mapId={MAP_ID}
+            {...(MAP_ID ? { mapId: MAP_ID } : { styles: DARK_MAP_STYLE })}
             mapTypeId={mapType}
-            styles={DARK_MAP_STYLE}
             streetViewControl={false}
             mapTypeControl={false}
             fullscreenControl={false} // Use our custom one
@@ -1191,6 +1198,7 @@ export default function RouteMap({
               speedMultiplier={flyoverSpeed}
               onMetricsUpdate={setSimulationMetrics}
               onStop={handleStopFlying}
+              totalDistance={route?.distance || 150}
             />
 
             {/* Origin Marker */}
@@ -1536,7 +1544,7 @@ export default function RouteMap({
                     </div>
                   </div>
 
-                  <ElevationProfile distance={selectedSegment.distance} className="mt-2" />
+                  <ElevationProfile distance={selectedSegment.distance} geometry={selectedSegment.points} className="mt-2" />
 
                   <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
                     <div className="flex items-center gap-1.5 text-[10px] text-gray-500 font-medium">

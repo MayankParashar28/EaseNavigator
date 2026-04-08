@@ -59,7 +59,7 @@ export default function JourneyTimeline({ origin, destination, stops, totalDurat
                 Journey Plan
             </h3>
 
-            <div className="relative z-10 flex flex-row items-stretch gap-4 overflow-x-auto custom-scrollbar pb-2 px-1">
+            <div className="relative z-10 flex flex-row items-stretch gap-4 overflow-x-auto custom-scrollbar pb-2 px-1 hide-scrollbar-snap">
                 {nodes.map((node, i) => {
                     // Helper for dynamic SOC color
                     const getSocColor = (soc?: number) => {
@@ -73,7 +73,7 @@ export default function JourneyTimeline({ origin, destination, stops, totalDurat
                     return (
                         <div
                             key={i}
-                            className={`relative flex-shrink-0 w-52 p-3 rounded-xl border backdrop-blur-md transition-all duration-300 cursor-pointer flex flex-col justify-between group ${hoveredIndex === i ? 'bg-white/10 border-neon-blue shadow-lg shadow-neon-blue/20 scale-[1.02]' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}
+                            className={`snap-child relative flex-shrink-0 w-52 p-3 rounded-xl border backdrop-blur-md transition-all duration-300 cursor-pointer flex flex-col justify-between group hover-tilt ${hoveredIndex === i ? 'bg-white/10 border-neon-blue shadow-lg shadow-neon-blue/20 scale-[1.02]' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}
                             onMouseEnter={() => onHover?.(i)}
                             onMouseLeave={() => onHover?.(null)}
                             onClick={() => onNodeClick?.(i, node.type)}

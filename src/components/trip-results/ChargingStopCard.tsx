@@ -41,7 +41,9 @@ export default function ChargingStopCard({ station, stopNumber, arrivalSOC, char
     const queueTime = available === 0 ? Math.floor(Math.random() * 15) + 5 : 0;
 
     return (
-        <div className="glass-panel border border-white/10 overflow-hidden transition-all duration-300 hover:border-neon-purple/30 group">
+        <div className="glass-panel border border-white/10 overflow-hidden transition-all duration-300 hover:border-neon-purple/30 group hover-tilt relative">
+            {/* Holographic Glare */}
+            <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/10 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none mix-blend-overlay border-red-500"></div>
             {/* Header */}
             <div className="p-5 flex flex-col sm:flex-row justify-between items-start gap-4 bg-gradient-to-br from-white/5 to-transparent">
                 <div className="flex-1 min-w-0">

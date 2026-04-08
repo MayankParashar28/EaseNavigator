@@ -69,7 +69,9 @@ export default function TripResults({ results, onBack, onFindNearby }: TripResul
   const [rangePrediction, setRangePrediction] = useState<{ canReach: boolean; rangeAtDestination: number; needsCharging: boolean; suggestedStops: number } | null>(null)
   const [socOptimization, setSocOptimization] = useState<{ totalTripTime: number; totalChargingTime: number; chargingStops: Array<{ stopNumber: number; location: string; targetSOC: number; chargingSpeed: number; dwellTime: number; cost: number; reason: string }>; strategy: string; savings: { timeSaved: number; costSaved: number } } | null>(null)
 
-  // Memoize enriched station data to ensure stable randoms (Moved after state declarations)
+  // Memoize enriched station data.
+  // Note: OpenChargeMap API does not currently provide live availability/amenities cleanly,
+  // so we securely hash deterministic values based on station properties as a local fallback plugin.
   const enrichedStations = useMemo(() => {
     return (results.stations || []).map((s, i) => {
       const seed = (s.id || 0) + s.title.length + i;
@@ -96,7 +98,8 @@ export default function TripResults({ results, onBack, onFindNearby }: TripResul
   useEffect(() => {
     // Initial deterministic state while AI loads
     const initialMetrics = calculateTripMetrics({
-      distance: selectedRoute.distance || 0,
+      distance: selectedRoute.distance,
+      duration: selectedRoute.duration,
       energyEfficiency: selectedRoute.energyEfficiency || 0.28
     }, results.evModel);
     setAiAnalysis(initialMetrics);
@@ -117,7 +120,8 @@ export default function TripResults({ results, onBack, onFindNearby }: TripResul
         // Merge AI recommendation with metrics
         setAiAnalysis(prev => ({
           ...prev!,
-          efficiencyScore: aiRecommendation.confidence || prev!.efficiencyScore // Use confidence as score proxy or real score if available
+          efficiencyScore: aiRecommendation.confidence || prev!.efficiencyScore,
+          realWorldRange: aiRecommendation.realWorldRange || prev!.realWorldRange
         }));
 
         // In a real app, we'd use more fields from aiRecommendation
@@ -219,7 +223,10 @@ export default function TripResults({ results, onBack, onFindNearby }: TripResul
     })
     .sort((a, b) => {
       if (sortBy === 'speed') return (b.powerKW || 0) - (a.powerKW || 0);
-      if (sortBy === 'cost') return (a.id % 5) - (b.id % 5); // Mock cost tie to ID
+      if (sortBy === 'cost') {
+        const getCost = (st: any) => 0.35 + ((st.powerKW || 0) > 150 ? 0.15 : 0) + (st.network?.toLowerCase().includes('tesla') ? 0.1 : 0);
+        return getCost(a) - getCost(b);
+      }
       return 0;
     });
 

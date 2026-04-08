@@ -6,6 +6,7 @@ export interface AIRecommendation {
   chargingPlan: Array<{ stop: string; minutes: number }>; // simple, UI-friendly
   risks: string[];
   explanation?: string;
+  realWorldRange?: number;
 }
 
 export interface ChatMessage {
@@ -103,7 +104,7 @@ function buildPrompt(input: AnalyzeInput): string {
   const header = `You are analyzing EV trip routes. Pick the best route and explain why.`
   const ev = `${input.evModel.manufacturer} ${input.evModel.model_name}, range ${input.evModel.range_miles} mi, efficiency ${input.evModel.efficiency_kwh_per_mile} kWh/mi`;
   const routes = input.routes.map(r => `- ${r.id} ${r.name}: ${r.distance} mi, ${r.duration} min, battery ${r.batteryUsage}%, stops ${r.chargingStops}, cost $${r.estimatedCost}`).join("\n");
-  const body = `From ${input.origin} to ${input.destination}. Starting battery ${input.startingBattery}%. EV: ${ev}. Routes:\n${routes}\nReturn JSON with keys: summary, recommendedRouteId, confidence (0-100), reasons (array), chargingPlan (array of {stop, minutes}), risks (array).`;
+  const body = `From ${input.origin} to ${input.destination}. Starting battery ${input.startingBattery}%. EV: ${ev}. Routes:\n${routes}\nReturn JSON with keys: summary, recommendedRouteId, confidence (0-100), reasons (array), chargingPlan (array of {stop, minutes}), risks (array), realWorldRange (number, realistically estimated true total range in miles based on route terrain/speed limits/weather, not just EPA).`;
   return `${header}\n${body}`;
 }
 
@@ -111,7 +112,7 @@ async function callGemini(prompt: string): Promise<AIRecommendation | null> {
   const apiKey = (import.meta as unknown as { env?: Record<string, unknown> }).env?.VITE_GEMINI_API_KEY as string | undefined;
   if (!apiKey) return null;
   try {
-    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + encodeURIComponent(apiKey), {
+    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + encodeURIComponent(apiKey), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -140,6 +141,7 @@ async function callGemini(prompt: string): Promise<AIRecommendation | null> {
       risks?: unknown[];
       confidence?: unknown;
       summary?: unknown;
+      realWorldRange?: unknown;
     };
     return {
       summary: String(parsed.summary || ''),
@@ -148,6 +150,7 @@ async function callGemini(prompt: string): Promise<AIRecommendation | null> {
       reasons: Array.isArray(parsed.reasons) ? parsed.reasons.map((r) => String(r)) : [],
       chargingPlan: Array.isArray(parsed.chargingPlan) ? parsed.chargingPlan.map((p) => ({ stop: String(p?.stop || ''), minutes: Number(p?.minutes || 0) })) : [],
       risks: Array.isArray(parsed.risks) ? parsed.risks.map((r) => String(r)) : [],
+      realWorldRange: typeof parsed.realWorldRange === 'number' ? parsed.realWorldRange : undefined,
     };
   } catch {
     return null;
@@ -174,6 +177,7 @@ function localHeuristic(input: AnalyzeInput): AIRecommendation {
     reasons,
     chargingPlan,
     risks,
+    realWorldRange: Math.round(input.evModel.range_miles * (input.evModel.efficiency_kwh_per_mile / ((recommended.energyEfficiency || input.evModel.efficiency_kwh_per_mile) * (recommended.distance / (recommended.duration / 60) > 60 ? 1.0 + ((recommended.distance / (recommended.duration / 60) - 60) * 0.015) : 1.0)))),
   };
 }
 
@@ -241,7 +245,7 @@ export async function analyzePredictions(params: {
   const apiKey = (import.meta as unknown as { env?: Record<string, unknown> }).env?.VITE_GEMINI_API_KEY as string | undefined;
   if (apiKey) {
     try {
-      const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + encodeURIComponent(apiKey), {
+      const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + encodeURIComponent(apiKey), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -497,10 +501,11 @@ export interface TripMetrics {
   co2Saved: number;
   equivalentTrees: number;
   fuelCostSaved: number;
+  realWorldRange?: number;
 }
 
 export function calculateTripMetrics(
-  route: { distance: number; energyEfficiency: number },
+  route: { distance: number; duration?: number; energyEfficiency: number },
   evModel: AnalyzeInput['evModel']
 ): TripMetrics {
   // Deterministic calculations based on inputs
@@ -523,18 +528,29 @@ export function calculateTripMetrics(
   const evCost = route.distance * (evModel.efficiency_kwh_per_mile * 0.15); // Assume /bin/zsh.15/kWh
   const fuelCostSaved = Number(Math.max(0, gasCost - evCost).toFixed(2));
 
-  // Efficiency Score:
-  // 100 is "perfect" (rated efficiency). Lower if route efficiency < rated efficiency.
-  // Example: Route efficiency 0.3 kWh/mi, Rated 0.25 kWh/mi -> (0.25/0.3) * 100 = 83
-  const efficiencyRatio = evModel.efficiency_kwh_per_mile / (route.energyEfficiency || evModel.efficiency_kwh_per_mile);
+  // Calculate average speed if duration is available
+  const avgSpeedMph = route.duration ? route.distance / (route.duration / 60) : 65;
+  
+  // Real-world penalty (highway aerodynamics drag strongly impacts EV range above ~60mph)
+  let speedPenalty = 1.0;
+  if (avgSpeedMph > 60) {
+      speedPenalty = 1.0 + ((avgSpeedMph - 60) * 0.015); // Add ~1.5% consumption per mph over 60
+  }
+  
+  const realisticEfficiency = (route.energyEfficiency || evModel.efficiency_kwh_per_mile) * speedPenalty;
+  const efficiencyRatio = evModel.efficiency_kwh_per_mile / realisticEfficiency;
+  
   // Cap at 100, min 40.
   const efficiencyScore = Math.min(100, Math.max(40, Math.round(efficiencyRatio * 100)));
+
+  const realWorldRange = Math.round(evModel.range_miles * efficiencyRatio);
 
   return {
     efficiencyScore,
     co2Saved,
     equivalentTrees,
-    fuelCostSaved
+    fuelCostSaved,
+    realWorldRange
   };
 }
 
@@ -563,7 +579,7 @@ export async function parseTripCommand(text: string): Promise<ParsedTripCommand 
   `;
 
   try {
-    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + encodeURIComponent(apiKey), {
+    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + encodeURIComponent(apiKey), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -634,7 +650,7 @@ export async function getChatResponse(params: {
   ];
 
   try {
-    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + encodeURIComponent(apiKey), {
+    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + encodeURIComponent(apiKey), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -674,7 +690,7 @@ export async function generateStopDescription(stationName: string, amenities: st
   `;
 
   try {
-    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + encodeURIComponent(apiKey), {
+    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + encodeURIComponent(apiKey), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

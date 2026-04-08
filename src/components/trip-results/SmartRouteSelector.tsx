@@ -69,7 +69,7 @@ export default function SmartRouteSelector({ routes, selectedRouteId, onSelectRo
                                     <span className="text-[10px] font-bold text-gray-400">{route.chargingStops} {route.chargingStops === 1 ? 'stop' : 'stops'}</span>
                                 </div>
                                 <div className="flex items-center gap-1.5 bg-black/20 px-2 py-1 rounded-md">
-                                    <span className="text-[10px] font-bold text-neon-green">${route.estimatedCost.toFixed(2)}</span>
+                                    <span className="text-[10px] font-bold text-neon-green">${(route.estimatedCost ?? 0).toFixed(2)}</span>
                                 </div>
                             </div>
                         </div>

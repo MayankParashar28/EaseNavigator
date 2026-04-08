@@ -107,39 +107,39 @@ export default function RouteList({ results, routes, selectedRoute, setSelectedR
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 pt-4 border-t border-white/5">
                                         <div className="text-center p-2 rounded-lg bg-surface/50">
                                             <div className="text-xs text-color-text-tertiary font-bold uppercase mb-1">Efficiency</div>
-                                            <div className="text-lg font-bold text-white">{route.energyEfficiency}</div>
+                                            <div className="text-lg font-bold text-white">{route.energyEfficiency ?? 'N/A'}</div>
                                             <div className="text-xs text-color-text-secondary">kWh/mi</div>
                                         </div>
 
                                         <div className="text-center p-2 rounded-lg bg-surface/50">
                                             <div className="text-xs text-color-text-tertiary font-bold uppercase mb-1">Est. Cost</div>
-                                            <div className="text-lg font-bold text-white">${route.estimatedCost}</div>
+                                            <div className="text-lg font-bold text-white">${route.estimatedCost ?? 'N/A'}</div>
                                             <div className="text-xs text-color-text-secondary">total</div>
                                         </div>
 
                                         <div className="text-center p-2 rounded-lg bg-surface/50">
                                             <div className="text-xs text-color-text-tertiary font-bold uppercase mb-1">Energy</div>
                                             <div className="text-lg font-bold text-white">
-                                                {(route.distance * route.energyEfficiency).toFixed(1)}
+                                                {(route.distance * (route.energyEfficiency ?? 0)).toFixed(1)}
                                             </div>
                                             <div className="text-xs text-color-text-secondary">kWh</div>
                                         </div>
 
                                         <div className="text-center p-2 rounded-lg bg-surface/50">
                                             <div className="text-xs text-color-text-tertiary font-bold uppercase mb-1">Weather</div>
-                                            <div className="text-lg font-bold text-white">{route.weatherConditions.start.temp}°F</div>
-                                            <div className="text-xs text-color-text-secondary">{route.weatherConditions.start.condition}</div>
+                                            <div className="text-lg font-bold text-white">{route.weatherConditions?.start.temp ?? '--'}°F</div>
+                                            <div className="text-xs text-color-text-secondary">{route.weatherConditions?.start.condition ?? 'N/A'}</div>
                                         </div>
                                     </div>
 
-                                    {isSelected && (
+                                    {isSelected && route.weatherConditions && (
                                         <div className="pt-4 border-t border-white/5 animate-fade-in-up">
                                             <div className="text-xs font-bold text-color-text-secondary mb-3 uppercase tracking-wide">
                                                 Environmental Conditions
                                             </div>
                                             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                                {["start", "midpoint", "end"].map((point) => {
-                                                    const weather = route.weatherConditions[point as keyof typeof route.weatherConditions]
+                                                {(["start", "midpoint", "end"] as const).map((point) => {
+                                                    const weather = route.weatherConditions![point]
                                                     return (
                                                         <div key={point} className="bg-surface/50 rounded-lg p-3 border border-white/5">
                                                             <div className="text-[10px] font-bold text-color-text-tertiary mb-2 uppercase tracking-wide">
@@ -201,14 +201,14 @@ export default function RouteList({ results, routes, selectedRoute, setSelectedR
                                     <div className="flex items-center justify-between mb-2">
                                         <span className="text-sm font-medium text-color-text-secondary">After Trip</span>
                                         <span className="text-sm font-bold text-white">
-                                            {Math.max(0, results.startingBattery - selectedRoute.batteryUsage)}%
+                                            {Math.max(0, results.startingBattery - (selectedRoute.batteryUsage ?? 0))}%
                                         </span>
                                     </div>
                                     <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
                                         <div
-                                            className={`h-2 rounded-full shadow-[0_0_10px_rgba(255,183,0,0.5)] ${(results.startingBattery - selectedRoute.batteryUsage) < 20 ? 'bg-red-500' : 'bg-yellow-500'
+                                            className={`h-2 rounded-full shadow-[0_0_10px_rgba(255,183,0,0.5)] ${(results.startingBattery - (selectedRoute.batteryUsage ?? 0)) < 20 ? 'bg-red-500' : 'bg-yellow-500'
                                                 }`}
-                                            style={{ width: `${Math.max(0, results.startingBattery - selectedRoute.batteryUsage)}%` }}
+                                            style={{ width: `${Math.max(0, results.startingBattery - (selectedRoute.batteryUsage ?? 0))}%` }}
                                         />
                                     </div>
                                 </div>
@@ -223,11 +223,11 @@ export default function RouteList({ results, routes, selectedRoute, setSelectedR
                                 { label: "Duration", value: formatDuration(selectedRoute.duration), icon: Clock, color: "text-neon-purple" },
                                 {
                                     label: "Energy Used",
-                                    value: `${(selectedRoute.distance * selectedRoute.energyEfficiency).toFixed(1)} kWh`,
+                                    value: `${(selectedRoute.distance * (selectedRoute.energyEfficiency ?? 0)).toFixed(1)} kWh`,
                                     icon: Zap,
                                     color: "text-yellow-500"
                                 },
-                                { label: "Est. Cost", value: `$${selectedRoute.estimatedCost}`, icon: DollarSign, color: "text-green-400" },
+                                { label: "Est. Cost", value: `$${selectedRoute.estimatedCost ?? 'N/A'}`, icon: DollarSign, color: "text-green-400" },
                             ].map((metric, index) => (
                                 <div
                                     key={index}

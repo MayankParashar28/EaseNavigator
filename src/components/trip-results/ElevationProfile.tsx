@@ -1,13 +1,42 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
+import { useMapsLibrary } from '@vis.gl/react-google-maps';
 
 interface ElevationProfileProps {
     distance: number; // miles
+    geometry?: [number, number][];
     className?: string;
 }
 
-export default function ElevationProfile({ distance, className = "" }: ElevationProfileProps) {
-    // Generate mock elevation data points based on distance
-    const points = useMemo(() => {
+export default function ElevationProfile({ distance, geometry, className = "" }: ElevationProfileProps) {
+    const elevationLibrary = useMapsLibrary('elevation');
+    const [realPoints, setRealPoints] = useState<{ x: number, y: number }[]>([]);
+
+    useEffect(() => {
+        if (!geometry || geometry.length < 2 || !elevationLibrary) return;
+
+        const elevationService = new elevationLibrary.ElevationService();
+        const path = geometry.map(g => new google.maps.LatLng(g[0], g[1]));
+
+        elevationService.getElevationAlongPath({
+            path: path,
+            samples: 50
+        })
+            .then(response => {
+                if (response.results) {
+                    const pts = response.results.map((res, idx) => ({
+                        x: (idx / Math.max(1, response.results.length - 1)) * 100,
+                        y: res.elevation * 3.28084 // Convert meters to feet
+                    }));
+                    setRealPoints(pts);
+                }
+            })
+            .catch(err => {
+                console.error("Elevation error", err);
+            });
+    }, [geometry, elevationLibrary]);
+
+    // Generate mock elevation data points based on distance (fallback)
+    const mockPoints = useMemo(() => {
         const numPoints = 50;
         const data = [];
         let currentHeight = 100 + Math.random() * 200;
@@ -24,13 +53,15 @@ export default function ElevationProfile({ distance, className = "" }: Elevation
         return data;
     }, [distance]);
 
-    const maxElevation = Math.max(...points.map(p => p.y));
-    const minElevation = Math.min(...points.map(p => p.y));
-    const range = maxElevation - minElevation + 20;
+    const activePoints = realPoints.length > 0 ? realPoints : mockPoints;
+
+    const maxElevation = Math.max(...activePoints.map(p => p.y));
+    const minElevation = Math.min(...activePoints.map(p => p.y));
+    const range = Math.max(1, maxElevation - minElevation + 20);
 
     const pathData = useMemo(() => {
-        if (points.length === 0) return "";
-        const scaledPoints = points.map(p => ({
+        if (activePoints.length === 0) return "";
+        const scaledPoints = activePoints.map(p => ({
             x: p.x,
             y: 100 - ((p.y - minElevation + 10) / range) * 80
         }));
@@ -41,7 +72,7 @@ export default function ElevationProfile({ distance, className = "" }: Elevation
         });
         d += ` L 100 100 Z`;
         return d;
-    }, [points, minElevation, range]);
+    }, [activePoints, minElevation, range]);
 
     return (
         <div className={`space-y-2 ${className}`}>

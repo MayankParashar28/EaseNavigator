@@ -364,7 +364,6 @@ export default function TripPlanner({ onSignOut }: TripPlannerProps) {
       }
 
     } catch (err: unknown) {
-      // Fallback to previous mock behavior on error
       console.error(err);
       const message = err instanceof Error ? err.message : 'Failed to plan trip. Please try again.';
       setError(message);
@@ -412,6 +411,12 @@ export default function TripPlanner({ onSignOut }: TripPlannerProps) {
             connectionType: s.connectionType,
             network: s.network
           }));
+
+          if (mappedStations.length === 0) {
+            setError("No charging stations found near your current location within 10 miles.");
+            setLoading(false);
+            return;
+          }
 
           // Set dummy trip results to show map
           const dummyRoute: RouteShape = {
