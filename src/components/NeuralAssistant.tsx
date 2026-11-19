@@ -1,8 +1,22 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Mic, Send, Sparkles, X, Loader2, BrainCircuit } from 'lucide-react';
 import { type ParsedTripCommand, getChatResponse, type ChatMessage } from '../lib/ai';
 import { EVModel } from '../lib/localStorage';
 import { RouteWithGeom } from './RouteMap';
+
+// Minimal Web Speech API typing (not in TypeScript's DOM lib).
+interface SpeechRecognitionLike {
+    lang: string;
+    interimResults: boolean;
+    continuous: boolean;
+    start(): void;
+    stop(): void;
+    abort(): void;
+    onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+    onend: (() => void) | null;
+    onerror: (() => void) | null;
+}
+type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
 
 interface NeuralAssistantProps {
     onCommand: (command: ParsedTripCommand) => void;
@@ -23,7 +37,36 @@ export default function NeuralAssistant({ onCommand, context, className = '' }: 
     const [isProcessing, setIsProcessing] = useState(false);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const scrollRef = useRef<HTMLDivElement>(null);
-    const recognitionRef = useRef<any>(null);
+    const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+    const [speechSupported, setSpeechSupported] = useState(false);
+
+    // Set up browser speech recognition (Chrome/Edge/Safari) for voice input.
+    useEffect(() => {
+        const w = window as unknown as { SpeechRecognition?: SpeechRecognitionCtor; webkitSpeechRecognition?: SpeechRecognitionCtor };
+        const Ctor = w.SpeechRecognition ?? w.webkitSpeechRecognition;
+        if (!Ctor) return;
+
+        const recognition = new Ctor();
+        recognition.lang = 'en-US';
+        recognition.interimResults = true;
+        recognition.continuous = false;
+        recognition.onresult = (event) => {
+            const transcript = Array.from(event.results).map(r => r[0]?.transcript ?? '').join('');
+            setInput(transcript);
+        };
+        recognition.onend = () => setIsListening(false);
+        recognition.onerror = () => setIsListening(false);
+        recognitionRef.current = recognition;
+        setSpeechSupported(true);
+
+        return () => {
+            recognition.onresult = null;
+            recognition.onend = null;
+            recognition.onerror = null;
+            recognition.abort();
+            recognitionRef.current = null;
+        };
+    }, []);
 
     const suggestions = context?.routes?.length
         ? ["Avoid tolls", "Minimize charging cost", "Explain this route", "Plan for winter"]
@@ -182,7 +225,7 @@ export default function NeuralAssistant({ onCommand, context, className = '' }: 
                             />
 
                             <div className="absolute bottom-2.5 right-2.5 flex gap-2">
-                                {recognitionRef.current && (
+                                {speechSupported && (
                                     <button
                                         onClick={toggleListening}
                                         className={`p-1.5 rounded-lg transition-all ${isListening ? 'bg-red-500/20 text-red-400 animate-pulse' : 'hover:bg-white/10 text-gray-400 hover:text-white'}`}

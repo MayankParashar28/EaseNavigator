@@ -5,12 +5,12 @@ import type { EVModel } from "../lib/localStorage"
 import { updateTripFavorite, updateTripName, deleteTrip } from "../lib/localStorage"
 import { trafficService, TrafficData, TrafficAlert } from "../lib/trafficService"
 import { analyzeTrip, calculateTripMetrics, TripMetrics } from "../lib/ai"
-import { useAuth } from "../contexts/AuthContext"
+import { useAuth } from "../contexts/useAuth"
 import TripHeader from "./trip-results/TripHeader"
 import StatsBentoGrid from "./trip-results/StatsBentoGrid"
 import TrafficPanel from "./trip-results/TrafficPanel"
 import TripIntelligence from "./trip-results/TripIntelligence"
-import RouteMap, { RouteWithGeom } from "./RouteMap"
+import RouteMap, { RouteWithGeom, type Station as MapStation } from "./RouteMap"
 import SmartRouteSelector from "./trip-results/SmartRouteSelector"
 import CompanionView from "./navigation/CompanionView"
 import ChargingStopCard from "./trip-results/ChargingStopCard"
@@ -62,7 +62,7 @@ export default function TripResults({ results, onBack, onFindNearby }: TripResul
   const [filterType, setFilterType] = useState<'all' | 'tesla' | 'ccs'>('all');
   const [sortBy, setSortBy] = useState<'speed' | 'cost' | 'distance'>('speed');
   const [hoveredNodeIndex, setHoveredNodeIndex] = useState<number | null>(null);
-  const [selectedStation, setSelectedStation] = useState<{ id: number; title: string; latitude: number; longitude: number; } | null>(null);
+  const [selectedStation, setSelectedStation] = useState<MapStation | null>(null);
 
   // AI Analysis state
   const [aiAnalysis, setAiAnalysis] = useState<TripMetrics | null>(null)
@@ -224,7 +224,7 @@ export default function TripResults({ results, onBack, onFindNearby }: TripResul
     .sort((a, b) => {
       if (sortBy === 'speed') return (b.powerKW || 0) - (a.powerKW || 0);
       if (sortBy === 'cost') {
-        const getCost = (st: any) => 0.35 + ((st.powerKW || 0) > 150 ? 0.15 : 0) + (st.network?.toLowerCase().includes('tesla') ? 0.1 : 0);
+        const getCost = (st: { powerKW?: number; network?: string }) => 0.35 + ((st.powerKW || 0) > 150 ? 0.15 : 0) + (st.network?.toLowerCase().includes('tesla') ? 0.1 : 0);
         return getCost(a) - getCost(b);
       }
       return 0;
@@ -496,8 +496,8 @@ export default function TripResults({ results, onBack, onFindNearby }: TripResul
                   onSelectRoute={(r) => setSelectedRoute(r as RouteWithGeometry)}
                   hoveredSegmentIndex={hoveredNodeIndex}
                   onHoverSegment={setHoveredNodeIndex}
-                  focusedStation={selectedStation as any}
-                  onSelectStation={(s) => setSelectedStation(s as any)}
+                  focusedStation={selectedStation}
+                  onSelectStation={setSelectedStation}
                 />
               </div>
 
@@ -521,7 +521,7 @@ export default function TripResults({ results, onBack, onFindNearby }: TripResul
                   onNodeClick={(index, type) => {
                     if (type === 'stop') {
                       const station = enrichedStations[index];
-                      if (station) setSelectedStation(station as any);
+                      if (station) setSelectedStation(station);
                     }
                   }}
                 />

@@ -1,5 +1,4 @@
 import { Component, ErrorInfo, ReactNode } from 'react';
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 interface Props {

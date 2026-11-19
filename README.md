@@ -125,32 +125,38 @@ graph TD
 | Area | Technology | Description |
 |------|-------------|-------------|
 | **Frontend** | React + TypeScript | Modular, scalable, and type-safe UI |
-| **AI Engine** | Google Gemini (1.5 Flash) | Natural language parsing and intelligent recommendations |
+| **AI Engine** | Google Gemini (2.5 Flash) | Natural language parsing and intelligent recommendations |
 | **Mapping** | Google Maps Platform | Advanced markers, directions, and 3D vector maps |
 | **Routing** | OSRM (Open Source Routing Machine) | Optimized driving routes with multiple alternatives |
 | **Geocoding** | Nominatim (OpenStreetMap) | High-accuracy address resolution |
 | **Charging Data** | OpenChargeMap API | Comprehensive global database of charging stations |
-| **Weather** | Open-Meteo | Real-time weather impact analysis |
+| **Weather** | OpenWeatherMap (simulated fallback) | Real-time weather impact analysis |
 | **Styling** | Tailwind CSS | Modern, responsive, and aesthetic design |
 
 ---
 
 ##  Setup & APIs
 
-To run Neural Navigator locally, you'll need to set up the following environment variables in a `.env` file:
+Copy `.env.example` to `.env` and fill in your keys:
 
-```env
-VITE_GOOGLE_MAPS_API_KEY=your_google_maps_key
-VITE_GEMINI_API_KEY=your_gemini_api_key
-VITE_OCM_API_KEY=your_openchargemap_api_key
-```
+| Variable | Where it's used | Exposed to the browser? |
+|----------|-----------------|-------------------------|
+| `VITE_GOOGLE_MAPS_API_KEY` | Google Maps JS (map, directions, elevation) | Yes, this is required by Maps. Restrict it to your domains in Google Cloud Console. |
+| `VITE_GOOGLE_MAPS_MAP_ID` | Optional Map ID for vector/3D styling | Yes |
+| `VITE_OPENWEATHER_API_KEY` | Optional live weather; simulated if unset | Yes |
+| `OCM_API_KEY` | OpenChargeMap charging stations | **No**, added server-side by `/api/ocm` |
+| `GEMINI_API_KEY` | Gemini AI recommendations & assistant | **No**, added server-side by `/api/gemini` |
+
+Secret keys (no `VITE_` prefix) are never bundled into the frontend. In development the Vite dev
+server proxies `/api/ocm` and `/api/gemini` and injects them; in production the Vercel functions in
+`api/` do the same. If `GEMINI_API_KEY` is missing, the app falls back to local heuristics.
 
 ###  Installation
 
 1. **Clone the repo**
    ```bash
-   git clone https://github.com/<your-username>/NeuralNavigator.git
-   cd NeuralNavigator
+   git clone https://github.com/MayankParashar28/EaseNavigator.git
+   cd EaseNavigator
    ```
 
 2. **Install dependencies**
@@ -163,12 +169,31 @@ VITE_OCM_API_KEY=your_openchargemap_api_key
    npm run dev
    ```
 
+4. **Check the code** (type-check + lint)
+   ```bash
+   npm run typecheck && npm run lint
+   ```
+
+###  Deploying to Vercel
+
+Add the same variables under **Project → Settings → Environment Variables**. `OCM_API_KEY` and
+`GEMINI_API_KEY` are read only by the serverless functions in `api/`.
+
+###  Accounts (demo mode)
+
+Sign-in is local only: there is no backend, and passwords are not stored or verified. Each email gets
+its own profile (trips, garage, preferences) saved in that browser's `localStorage`. Without signing in,
+the app runs as a guest profile.
+
 ---
 
 ##  Project Structure
 
 ```text
-NeuralNavigator/
+EaseNavigator/
+├── api/
+│   ├── ocm.ts                     # Serverless proxy: OpenChargeMap (holds key)
+│   └── gemini.ts                  # Serverless proxy: Gemini (holds key)
 ├── src/
 │   ├── components/
 │   │   ├── NeuralAssistant.tsx    # AI Voice/Text command center
@@ -179,7 +204,7 @@ NeuralNavigator/
 │   ├── lib/
 │   │   ├── ai.ts                  # Gemini integration layer
 │   │   ├── weatherService.ts      # Environmental calculations
-│   │   └── localStorage.ts        # Persistent storage & auth
+│   │   └── localStorage.ts        # Persistent storage & local profiles
 │   └── main.tsx                   # App entry
 └── package.json                   # Project configuration
 ```

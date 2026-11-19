@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/useAuth';
 import { getUserTrips, updateTripFavorite, updateTripName, deleteTrip, type UserTrip } from '../lib/localStorage';
 import { Star, Trash2, Pencil, Check, X, Navigation, Battery } from 'lucide-react';
 

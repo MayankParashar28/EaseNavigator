@@ -1,50 +1,46 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { getUserId } from '../lib/localStorage';
+import { useEffect, useState, ReactNode } from 'react';
+import { clearSession, getSession, getUserId, getUserIdForEmail, saveSession } from '../lib/localStorage';
+import { AuthContext, User } from './useAuth';
 
-interface User {
-  id: string;
-  email?: string;
+// Local demo auth: there is no backend, so passwords are NOT stored or verified.
+// Each email maps to its own local profile, so different people on the same
+// browser keep separate trips and preferences. Without signing in, the app
+// runs as an anonymous guest profile.
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MIN_PASSWORD_LENGTH = 6;
+
+function validate(email: string, password: string): string | null {
+  if (!EMAIL_RE.test(email.trim())) return 'Please enter a valid email address.';
+  if (password.length < MIN_PASSWORD_LENGTH) return `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
+  return null;
 }
-
-interface AuthContextType {
-  user: User | null;
-  loading: boolean;
-  signUp: (email: string, password: string) => Promise<{ error: string | null }>;
-  signIn: (email: string, password: string) => Promise<{ error: string | null }>;
-  signOut: () => Promise<void>;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Auto-login with stored user ID (simple local auth)
-    const userId = getUserId();
-    setUser({ id: userId });
+    // Restore the last session, or start as the anonymous guest profile.
+    setUser(getSession() ?? { id: getUserId() });
     setLoading(false);
   }, []);
 
-  const signUp = async (email: string, password: string) => {
-    // Simple local auth - just generate a new user ID
-    console.log("Signing up user:", email, password.length);
-    const userId = getUserId();
-    setUser({ id: userId, email });
+  const startSession = (email: string, password: string) => {
+    const error = validate(email, password);
+    if (error) return { error };
+    const normalized = email.trim().toLowerCase();
+    const session: User = { id: getUserIdForEmail(normalized), email: normalized };
+    saveSession(session);
+    setUser(session);
     return { error: null };
   };
 
-  const signIn = async (email: string, password: string) => {
-    // Simple local auth - just use existing or create new user ID
-    console.log("Signing in user:", email, password.length);
-    const userId = getUserId();
-    setUser({ id: userId, email });
-    return { error: null };
-  };
+  const signUp = async (email: string, password: string) => startSession(email, password);
+  const signIn = async (email: string, password: string) => startSession(email, password);
 
   const signOut = async () => {
-    // Clear user session (keep user ID for next login)
+    clearSession();
     setUser(null);
   };
 
@@ -53,12 +49,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       {children}
     </AuthContext.Provider>
   );
-}
-
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
 }

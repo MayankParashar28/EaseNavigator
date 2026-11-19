@@ -31,7 +31,7 @@ export default function LocationAutocomplete({
     const [isOpen, setIsOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
-    const debounceTimer = useRef<NodeJS.Timeout>();
+    const debounceTimer = useRef<ReturnType<typeof setTimeout>>();
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
