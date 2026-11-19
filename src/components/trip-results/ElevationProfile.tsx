@@ -39,11 +39,17 @@ export default function ElevationProfile({ distance, geometry, className = "" }:
     const mockPoints = useMemo(() => {
         const numPoints = 50;
         const data = [];
-        let currentHeight = 100 + Math.random() * 200;
+        // Seeded by route distance so the same route always shows the same profile
+        let seed = Math.floor((distance || 1) * 1000) >>> 0;
+        const random = () => {
+            seed = (seed * 1664525 + 1013904223) >>> 0;
+            return seed / 4294967296;
+        };
+        let currentHeight = 100 + random() * 200;
 
         for (let i = 0; i <= numPoints; i++) {
             // Random walk with some trend
-            const change = (Math.random() - 0.45) * 40;
+            const change = (random() - 0.45) * 40;
             currentHeight = Math.max(0, currentHeight + change);
             data.push({
                 x: (i / numPoints) * 100,

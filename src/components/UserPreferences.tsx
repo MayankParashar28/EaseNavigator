@@ -1,6 +1,6 @@
 
 import { useEffect, useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/useAuth';
 import { EV_MODELS, type EVModel, getUserPreferences, upsertUserPreferences } from '../lib/localStorage';
 import { Map, Car, X, Save, Battery, Gauge, Coffee, Wifi, ShoppingBag, Info } from 'lucide-react';
 

@@ -164,7 +164,6 @@ export interface ProcessedChargingStation {
 
 // OpenChargeMap API configuration
 const OPENCHARGE_API_BASE = API_CONFIG.OPENCHARGE.BASE_URL;
-const OPENCHARGE_API_KEY = API_CONFIG.OPENCHARGE.API_KEY;
 
 export class ChargingStationService {
   private static instance: ChargingStationService;
@@ -298,14 +297,13 @@ export class ChargingStationService {
       const baseUrl = OPENCHARGE_API_BASE.startsWith('http')
         ? OPENCHARGE_API_BASE
         : `${window.location.origin}${OPENCHARGE_API_BASE}`;
-      const url = new URL(`${baseUrl}/poi/`);
+      const url = new URL(baseUrl);
       url.searchParams.set('output', 'json');
       url.searchParams.set('latitude', latitude.toString());
       url.searchParams.set('longitude', longitude.toString());
       url.searchParams.set('distance', radius.toString());
       url.searchParams.set('distanceunit', 'Miles');
       url.searchParams.set('maxresults', maxResults.toString());
-      url.searchParams.set('key', OPENCHARGE_API_KEY);
 
       const response = await fetch(url.toString());
 
@@ -324,11 +322,11 @@ export class ChargingStationService {
 
           // Check if station has at least one of the preferred amenities
           return preferredAmenities.some(amenity => {
-            const a = station.amenities as any;
-            if (amenity === 'restrooms') return a?.restrooms;
-            if (amenity === 'food') return a?.foodNearby;
-            if (amenity === 'shopping') return a?.shopping;
-            if (amenity === 'wifi') return a?.wifi;
+            const a = station.amenities;
+            if (amenity === 'restrooms') return a?.restrooms ?? false;
+            if (amenity === 'food') return a?.foodNearby ?? false;
+            if (amenity === 'shopping') return a?.shopping ?? false;
+            if (amenity === 'wifi') return a?.wifi ?? false;
             return true;
           });
         })

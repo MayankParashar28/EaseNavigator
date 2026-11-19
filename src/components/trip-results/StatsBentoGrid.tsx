@@ -9,7 +9,7 @@ interface Route {
     distance: number
     duration?: number
     chargingStops?: number
-    weatherConditions?: any
+    weatherConditions?: unknown
     energyEfficiency?: number;
     [key: string]: any; // eslint-disable-line @typescript-eslint/no-explicit-any
 }

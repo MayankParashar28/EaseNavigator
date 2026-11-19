@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/useAuth';
 import { API_CONFIG } from '../config/api';
 import { EV_MODELS, type EVModel, getUserPreferences, saveTrip, type VehiclePreset, upsertUserPreferences } from '../lib/localStorage';
 import { LogOut, MapPin, Navigation, Battery, Loader2, History, AlertTriangle, Car, Menu, X } from 'lucide-react';

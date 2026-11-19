@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   APIProvider,
   Map,
@@ -14,6 +14,16 @@ import { generateStopDescription } from '../lib/ai';
 import ElevationProfile from './trip-results/ElevationProfile';
 import { getRouteEnvData, RouteEnvData } from '../lib/envService';
 
+// Keeps a ref pointing at the latest value, so effects can call the newest
+// callback/props without re-running (and tearing down) every render.
+function useLatest<T>(value: T) {
+  const ref = useRef(value);
+  useEffect(() => {
+    ref.current = value;
+  });
+  return ref;
+}
+
 interface CircleProps extends google.maps.CircleOptions {
   center: google.maps.LatLngLiteral;
   radius: number;
@@ -22,11 +32,12 @@ interface CircleProps extends google.maps.CircleOptions {
 const Circle = (props: CircleProps) => {
   const map = useMap();
   const [circle, setCircle] = useState<google.maps.Circle | null>(null);
+  const propsRef = useLatest(props);
 
   useEffect(() => {
     if (!map) return;
     const newCircle = new google.maps.Circle({
-      ...props,
+      ...propsRef.current,
       map
     });
     setCircle(newCircle);
@@ -34,7 +45,7 @@ const Circle = (props: CircleProps) => {
     return () => {
       newCircle.setMap(null);
     };
-  }, [map]);
+  }, [map, propsRef]);
 
   useEffect(() => {
     if (circle) {
@@ -45,7 +56,11 @@ const Circle = (props: CircleProps) => {
   return null;
 };
 
-interface Station {
+type ClusterItem =
+  | { type: 'single'; station: Station; lat: number; lng: number }
+  | { type: 'cluster'; stations: Station[]; lat: number; lng: number };
+
+export interface Station {
   id: number;
   title: string;
   latitude: number;
@@ -179,6 +194,7 @@ function Directions({
   onRouteChanged?: (res: google.maps.DirectionsResult) => void
 }) {
   const map = useMap();
+  const onRouteChangedRef = useLatest(onRouteChanged);
   const routesLibrary = useMapsLibrary('routes');
   const [directionsService, setDirectionsService] = useState<google.maps.DirectionsService>();
   const [directionsRenderer, setDirectionsRenderer] = useState<google.maps.DirectionsRenderer>();
@@ -216,7 +232,7 @@ function Directions({
       }
     }).then(response => {
       directionsRenderer.setDirections(response);
-      if (onRouteChanged) onRouteChanged(response);
+      onRouteChangedRef.current?.(response);
     }).catch(err => {
       console.error("Directions request failed", err);
     });
@@ -226,7 +242,7 @@ function Directions({
       // directionsRenderer.setDirections({ routes: [] }); 
     }
 
-  }, [directionsService, directionsRenderer, origin, destination, map]); // Added map to deps
+  }, [directionsService, directionsRenderer, origin, destination, map, onRouteChangedRef]);
 
   return null;
 }
@@ -487,6 +503,8 @@ function FlyoverController({
   totalDistance?: number
 }) {
   const map = useMap();
+  const onMetricsUpdateRef = useLatest(onMetricsUpdate);
+  const totalDistanceRef = useLatest(totalDistance);
 
   useEffect(() => {
     if (!map || !isPlaying || !routeGeometry || routeGeometry.length < 2) return;
@@ -531,11 +549,11 @@ function FlyoverController({
       });
 
       // Update Simulated Metrics
-      if (onMetricsUpdate) {
-        onMetricsUpdate({
+      if (onMetricsUpdateRef.current) {
+        onMetricsUpdateRef.current({
           speed: Math.round(65 + Math.random() * 5),
           efficiency: 0.25 + Math.random() * 0.1,
-          milesRemaining: Math.max(0, Math.round((1 - progress) * totalDistance)),
+          milesRemaining: Math.max(0, Math.round((1 - progress) * totalDistanceRef.current)),
           currentSoC: Math.max(15, 80 - progress * 65), // Starts at 80, drops to 15
           progress
         });
@@ -549,7 +567,7 @@ function FlyoverController({
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [map, isPlaying, routeGeometry, speedMultiplier, onStop]);
+  }, [map, isPlaying, routeGeometry, speedMultiplier, onStop, onMetricsUpdateRef, totalDistanceRef]);
 
   return null;
 }
@@ -753,6 +771,7 @@ function RouteSegments({
     if (!map || !maps || !segments || segments.length === 0) return;
 
     const polylines: google.maps.Polyline[] = [];
+    const segmentsWithIcons: google.maps.InfoWindow[] = [];
 
     segments.forEach((segment, i) => {
       const isHovered = hoveredIndex === i;
@@ -778,7 +797,8 @@ function RouteSegments({
 
       polyline.addListener('mouseout', () => {
         if (!isHovered) {
-          polyline.setOptions({ strokeColor: '#10b981', strokeWeight: 8, strokeOpacity: 0.8 });
+          // Restore this segment's own traffic color (not always green)
+          polyline.setOptions({ strokeColor, strokeWeight: 8, strokeOpacity: 0.8 });
         }
         if (onHoverSegment) onHoverSegment(null);
       });
@@ -823,8 +843,6 @@ function RouteSegments({
     };
   }, [map, maps, segments, hoveredIndex, onHoverSegment, onSelectSegment]);
 
-  const segmentsWithIcons: google.maps.InfoWindow[] = [];
-
   return null;
 }
 
@@ -868,10 +886,10 @@ export default function RouteMap({
 
   const [internalSelectedStation, setInternalSelectedStation] = useState<Station | null>(null);
   const selectedStation = focusedStation !== undefined ? focusedStation : internalSelectedStation;
-  const handleStationSelect = (s: Station | null) => {
+  const handleStationSelect = useCallback((s: Station | null) => {
     if (onSelectStation) onSelectStation(s);
     setInternalSelectedStation(s);
-  };
+  }, [onSelectStation]);
 
   // Auto-pan when selected station changes
   useEffect(() => {
@@ -896,6 +914,9 @@ export default function RouteMap({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!map) return;
+      // Don't hijack arrow/+/- keys while the user is typing in a field
+      const target = e.target as HTMLElement | null;
+      if (target && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return;
 
       const PAN_STEP = 50;
       switch (e.key) {
@@ -916,7 +937,7 @@ export default function RouteMap({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [map]);
+  }, [map, handleStationSelect]);
 
   const handleStopFlying = useCallback(() => setIsFlying(false), []);
 
@@ -951,20 +972,20 @@ export default function RouteMap({
       fitRouteBounds();
       // Cache route for offline viewing
       if (route.id) {
-        localStorage.setItem('last_planned_route', JSON.stringify({
-          route,
-          stations,
-          incidents,
-          timestamp: Date.now()
-        }));
-        setIsCached(true);
+        try {
+          localStorage.setItem('last_planned_route', JSON.stringify({
+            route,
+            stations,
+            incidents,
+            timestamp: Date.now()
+          }));
+          setIsCached(true);
+        } catch {
+          // Storage full or unavailable; offline cache is best-effort
+        }
       }
     }
-    if (map && stations && stations.length > 0) {
-      // Auto select first station for demo
-      // handleStationSelect(stations[0]); 
-    }
-  }, [map, stations, route.id, fitRouteBounds, incidents]);
+  }, [map, stations, route, originCoords, fitRouteBounds, incidents]);
 
   const mapContainerRef = React.useRef<HTMLDivElement>(null);
 
@@ -1033,17 +1054,17 @@ export default function RouteMap({
       setMeasurementLine(null);
       setMeasurementPoints([]);
     }
-  }, [isMeasuring]);
+  }, [isMeasuring, measurementLine]);
 
   const start = originCoords ? { lat: originCoords[0], lng: originCoords[1] } : { lat: 37.7749, lng: -122.4194 };
   const end = destinationCoords ? { lat: destinationCoords[0], lng: destinationCoords[1] } : { lat: 34.0522, lng: -118.2437 };
   const center = { lat: (start.lat + end.lat) / 2, lng: (start.lng + end.lng) / 2 };
 
   // Simple Clustering Logic
-  const clusters = useMemo(() => {
+  const clusters = useMemo((): ClusterItem[] => {
     if (zoom > 13) return stations.map(s => ({ type: 'single', station: s, lat: s.latitude, lng: s.longitude }));
 
-    const result: any[] = [];
+    const result: ClusterItem[] = [];
     const usedIndices = new Set<number>();
     const distanceThreshold = 0.05 * (15 - zoom); // Rough degree-based threshold
 
@@ -1212,7 +1233,7 @@ export default function RouteMap({
             </AdvancedMarker>
 
             {/* Charging Stations & Clusters */}
-            {clusters.map((c: any, i: number) => {
+            {clusters.map((c, i) => {
               if (c.type === 'cluster') {
                 return (
                   <AdvancedMarker
@@ -1238,12 +1259,13 @@ export default function RouteMap({
                 <AdvancedMarker
                   key={`station-${station.id}`}
                   position={{ lat: station.latitude, lng: station.longitude }}
-                  onMouseEnter={(e: any) => {
+                  onMouseEnter={(e) => {
+                    // The library passes the native DOM event (not a MapMouseEvent).
                     const power = station.powerKW || 0;
-                    if (e.domEvent && e.domEvent instanceof MouseEvent) {
+                    if (e instanceof MouseEvent) {
                       setTooltip({
                         content: `${station.title} · ${power}kW · ${station.availableConnectors || 2}/5 free`,
-                        pos: { x: (e.domEvent as MouseEvent).clientX, y: (e.domEvent as MouseEvent).clientY }
+                        pos: { x: e.clientX, y: e.clientY }
                       });
                     }
                   }}
@@ -1280,11 +1302,11 @@ export default function RouteMap({
               <React.Fragment key={`incident-group-${i}`}>
                 <AdvancedMarker
                   position={{ lat: incident.location.latitude, lng: incident.location.longitude }}
-                  onMouseEnter={(e: any) => {
-                    if (e.domEvent && e.domEvent instanceof MouseEvent) {
+                  onMouseEnter={(e) => {
+                    if (e instanceof MouseEvent) {
                       setTooltip({
                         content: `+${incident.delayMinutes || 15} min delay · ${incident.type.charAt(0).toUpperCase() + incident.type.slice(1)}`,
-                        pos: { x: (e.domEvent as MouseEvent).clientX, y: (e.domEvent as MouseEvent).clientY }
+                        pos: { x: e.clientX, y: e.clientY }
                       });
                     }
                   }}
@@ -1660,10 +1682,10 @@ export default function RouteMap({
 
             {isFlying && (
               <div className="flex bg-white/5 rounded-full p-1 ml-1 border border-white/10">
-                {[1, 2, 4].map((speed) => (
+                {([1, 2, 4] as const).map((speed) => (
                   <button
                     key={speed}
-                    onClick={() => setFlyoverSpeed(speed as any)}
+                    onClick={() => setFlyoverSpeed(speed)}
                     className={`px-2 py-1 rounded-full text-[9px] font-black transition-all ${flyoverSpeed === speed ? 'bg-white text-midnight' : 'text-gray-400 hover:text-white'
                       }`}
                   >

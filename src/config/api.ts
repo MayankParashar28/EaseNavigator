@@ -2,9 +2,9 @@
 export const API_CONFIG = {
   // OpenChargeMap API
   OPENCHARGE: {
+    // Served by the /api/ocm proxy (Vercel function in prod, Vite proxy in dev),
+    // which adds the OCM_API_KEY server-side so it never reaches the browser.
     BASE_URL: '/api/ocm',
-    // OpenChargeMap API key - using direct key for immediate functionality
-    API_KEY: '8054f03f-85f5-4259-8173-0a31cc89da87',
     DEFAULT_RADIUS: 6.2, // 10km in miles (10 * 0.621371)
     MAX_RESULTS: 50,
   },
@@ -32,9 +32,4 @@ export const API_CONFIG = {
       BASE_URL: 'https://api.openweathermap.org/data/2.5'
     }
   }
-};
-
-// Helper function to check if we have a valid API key
-export const hasOpenChargeAPIKey = (): boolean => {
-  return API_CONFIG.OPENCHARGE.API_KEY !== 'demo' && API_CONFIG.OPENCHARGE.API_KEY.length > 0;
 };
