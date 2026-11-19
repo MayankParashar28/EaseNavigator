@@ -108,11 +108,15 @@ function buildPrompt(input: AnalyzeInput): string {
   return `${header}\n${body}`;
 }
 
+// All Gemini calls go through the /api/gemini proxy, which holds the API key
+// server-side. If AI isn't configured the proxy returns 503 and callers fall back.
+const GEMINI_PROXY_URL = '/api/gemini';
+
+type GeminiResponse = { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+
 async function callGemini(prompt: string): Promise<AIRecommendation | null> {
-  const apiKey = (import.meta as unknown as { env?: Record<string, unknown> }).env?.VITE_GEMINI_API_KEY as string | undefined;
-  if (!apiKey) return null;
   try {
-    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + encodeURIComponent(apiKey), {
+    const res = await fetch(GEMINI_PROXY_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -242,50 +246,47 @@ export async function analyzePredictions(params: {
   weather: Array<{ point: 'start' | 'midpoint' | 'end'; tempF: number; condition: string }>;
 }): Promise<AIPredictions> {
   const prompt = buildPredictionsPrompt(params);
-  const apiKey = (import.meta as unknown as { env?: Record<string, unknown> }).env?.VITE_GEMINI_API_KEY as string | undefined;
-  if (apiKey) {
-    try {
-      const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + encodeURIComponent(apiKey), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.2,
-            maxOutputTokens: 400,
-            responseMimeType: "application/json"
-          }
-        })
-      });
-      if (res.ok) {
-        const data: unknown = await res.json();
-        const text = typeof data === 'object' && data !== null
-          ? (data as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> })
-            .candidates?.[0]?.content?.parts?.[0]?.text
-          : undefined;
-        if (text) {
-          const jsonStart = text.indexOf('{');
-          const jsonEnd = text.lastIndexOf('}');
-          const jsonSlice = jsonStart >= 0 && jsonEnd >= 0 ? text.slice(jsonStart, jsonEnd + 1) : text;
-          const parsed = JSON.parse(jsonSlice) as {
-            batteryDegradationRisk?: 'low' | 'medium' | 'high';
-            optimalChargingWindows?: Array<{ start?: unknown; end?: unknown; reason?: unknown }>;
-            weatherImpact?: { rangeDeltaPercent?: unknown; notes?: unknown[] };
-          };
-          const out: AIPredictions = {
-            batteryDegradationRisk: (parsed.batteryDegradationRisk || 'medium') as AIPredictions['batteryDegradationRisk'],
-            optimalChargingWindows: Array.isArray(parsed.optimalChargingWindows) ? parsed.optimalChargingWindows.map((w) => ({ start: String(w?.start || ''), end: String(w?.end || ''), reason: String(w?.reason || '') })) : [],
-            weatherImpact: {
-              rangeDeltaPercent: Number(parsed.weatherImpact?.rangeDeltaPercent ?? 0),
-              notes: Array.isArray(parsed.weatherImpact?.notes) ? parsed.weatherImpact.notes.map((n) => String(n as unknown as string)) : []
-            }
-          };
-          return out;
+  try {
+    const res = await fetch(GEMINI_PROXY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens: 400,
+          responseMimeType: "application/json"
         }
+      })
+    });
+    if (res.ok) {
+      const data: unknown = await res.json();
+      const text = typeof data === 'object' && data !== null
+        ? (data as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> })
+          .candidates?.[0]?.content?.parts?.[0]?.text
+        : undefined;
+      if (text) {
+        const jsonStart = text.indexOf('{');
+        const jsonEnd = text.lastIndexOf('}');
+        const jsonSlice = jsonStart >= 0 && jsonEnd >= 0 ? text.slice(jsonStart, jsonEnd + 1) : text;
+        const parsed = JSON.parse(jsonSlice) as {
+          batteryDegradationRisk?: 'low' | 'medium' | 'high';
+          optimalChargingWindows?: Array<{ start?: unknown; end?: unknown; reason?: unknown }>;
+          weatherImpact?: { rangeDeltaPercent?: unknown; notes?: unknown[] };
+        };
+        const out: AIPredictions = {
+          batteryDegradationRisk: (parsed.batteryDegradationRisk || 'medium') as AIPredictions['batteryDegradationRisk'],
+          optimalChargingWindows: Array.isArray(parsed.optimalChargingWindows) ? parsed.optimalChargingWindows.map((w) => ({ start: String(w?.start || ''), end: String(w?.end || ''), reason: String(w?.reason || '') })) : [],
+          weatherImpact: {
+            rangeDeltaPercent: Number(parsed.weatherImpact?.rangeDeltaPercent ?? 0),
+            notes: Array.isArray(parsed.weatherImpact?.notes) ? parsed.weatherImpact.notes.map((n) => String(n as unknown as string)) : []
+          }
+        };
+        return out;
       }
-    } catch {
-      // fall through to local
     }
+  } catch {
+    // fall through to local
   }
   return localPredictions(params);
 }
@@ -564,8 +565,6 @@ export interface ParsedTripCommand {
 }
 
 export async function parseTripCommand(text: string): Promise<ParsedTripCommand | null> {
-  const apiKey = (import.meta as unknown as { env?: Record<string, unknown> }).env?.VITE_GEMINI_API_KEY as string | undefined;
-  if (!apiKey) return null;
 
   const prompt = `
     Extract EV trip parameters from this command: "${text}".
@@ -579,7 +578,7 @@ export async function parseTripCommand(text: string): Promise<ParsedTripCommand 
   `;
 
   try {
-    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + encodeURIComponent(apiKey), {
+    const res = await fetch(GEMINI_PROXY_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -620,8 +619,6 @@ export async function getChatResponse(params: {
     startingBattery?: number;
   }
 }): Promise<{ response: string; command?: ParsedTripCommand }> {
-  const apiKey = (import.meta as unknown as { env?: Record<string, unknown> }).env?.VITE_GEMINI_API_KEY as string | undefined;
-  if (!apiKey) return { response: "I'm sorry, I'm offline right now." };
 
   const { text, history, context } = params;
 
@@ -650,7 +647,7 @@ export async function getChatResponse(params: {
   ];
 
   try {
-    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + encodeURIComponent(apiKey), {
+    const res = await fetch(GEMINI_PROXY_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -663,8 +660,9 @@ export async function getChatResponse(params: {
       })
     });
 
+    if (res.status === 503) return { response: "I'm sorry, I'm offline right now." };
     if (!res.ok) throw new Error('API Error');
-    const data: any = await res.json();
+    const data = await res.json() as GeminiResponse;
     const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!resultText) throw new Error('Empty response');
 
@@ -680,8 +678,6 @@ export async function getChatResponse(params: {
 }
 
 export async function generateStopDescription(stationName: string, amenities: string[]): Promise<string> {
-  const apiKey = (import.meta as unknown as { env?: Record<string, unknown> }).env?.VITE_GEMINI_API_KEY as string | undefined;
-  if (!apiKey) return "A convenient charging stop with nearby amenities.";
 
   const prompt = `
     Write a short, inviting 1-sentence "pitch" for an EV charging stop at "${stationName}".
@@ -690,7 +686,7 @@ export async function generateStopDescription(stationName: string, amenities: st
   `;
 
   try {
-    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + encodeURIComponent(apiKey), {
+    const res = await fetch(GEMINI_PROXY_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

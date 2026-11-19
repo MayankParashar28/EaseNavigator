@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/useAuth';
 import { Zap, Brain, Loader2, AlertTriangle } from 'lucide-react';
 
 export default function Auth() {
@@ -135,6 +135,10 @@ export default function Auth() {
                   )}
                 </button>
               </form>
+
+              <p className="mt-4 text-xs text-color-text-tertiary text-center">
+                Demo mode: your profile and trips are saved in this browser only. Passwords aren't stored or checked.
+              </p>
 
               <div className="mt-8 pt-6 border-t border-white/10 text-center">
                 <p className="text-color-text-secondary text-sm mb-4">

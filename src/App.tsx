@@ -1,4 +1,5 @@
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AuthProvider } from './contexts/AuthContext';
+import { useAuth } from './contexts/useAuth';
 import Auth from './components/Auth';
 import TripPlanner from './components/TripPlanner';
 

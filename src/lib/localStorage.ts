@@ -65,6 +65,7 @@ const STORAGE_KEYS = {
   TRIPS: 'neural_navigator_trips',
   PREFERENCES: 'neural_navigator_preferences',
   USER_ID: 'neural_navigator_user_id',
+  SESSION: 'neural_navigator_session',
 };
 
 // Trip history functions
@@ -177,7 +178,7 @@ export function getUserId(): string {
   try {
     const stored = localStorage.getItem(STORAGE_KEYS.USER_ID);
     if (stored) return stored;
-    const newId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const newId = `user_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
     localStorage.setItem(STORAGE_KEYS.USER_ID, newId);
     return newId;
   } catch {
@@ -185,3 +186,49 @@ export function getUserId(): string {
   }
 }
 
+
+// Stable per-email profile ID (FNV-1a hash) so each email has its own data.
+export function getUserIdForEmail(email: string): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < email.length; i++) {
+    hash ^= email.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return `user_${(hash >>> 0).toString(36)}`;
+}
+
+export interface StoredSession {
+  id: string;
+  email?: string;
+}
+
+export function getSession(): StoredSession | null {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEYS.SESSION);
+    if (!stored) return null;
+    const parsed: unknown = JSON.parse(stored);
+    if (typeof parsed === 'object' && parsed !== null && typeof (parsed as StoredSession).id === 'string') {
+      const { id, email } = parsed as StoredSession;
+      return { id, email: typeof email === 'string' ? email : undefined };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveSession(session: StoredSession): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.SESSION, JSON.stringify(session));
+  } catch {
+    // Storage unavailable (private mode); session lasts for this tab only.
+  }
+}
+
+export function clearSession(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEYS.SESSION);
+  } catch {
+    // Ignore
+  }
+}
