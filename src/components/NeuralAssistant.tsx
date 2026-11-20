@@ -128,7 +128,7 @@ export default function NeuralAssistant({ onCommand, context, className = '' }: 
                 <div className="absolute inset-0 rounded-full bg-white/20 animate-pulse-glow"></div>
                 <BrainCircuit className="w-6 h-6 text-white relative z-10" />
                 <span className="absolute right-full mr-4 top-1/2 -translate-y-1/2 bg-surface-highlight border border-white/10 px-3 py-1 rounded-lg text-sm text-white opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                    Ask Neural Assistant
+                    Ask the trip assistant
                 </span>
             </button>
         );
@@ -141,7 +141,7 @@ export default function NeuralAssistant({ onCommand, context, className = '' }: 
                 <div className="bg-gradient-to-r from-neon-purple/20 to-neon-blue/20 p-4 flex justify-between items-center border-b border-white/5">
                     <div className="flex items-center gap-2">
                         <Sparkles className="w-5 h-5 text-neon-purple" />
-                        <h3 className="font-bold text-white">Neural Assistant</h3>
+                        <h3 className="font-bold text-white">Trip Assistant</h3>
                     </div>
                     <button
                         onClick={() => setIsOpen(false)}
@@ -163,7 +163,7 @@ export default function NeuralAssistant({ onCommand, context, className = '' }: 
                                     <Sparkles className="w-8 h-8 text-neon-purple" />
                                 </div>
                                 <div>
-                                    <h4 className="text-white font-bold text-lg">Neural Assistant</h4>
+                                    <h4 className="text-white font-bold text-lg">Trip Assistant</h4>
                                     <p className="text-color-text-secondary text-sm px-8">
                                         Your EV co-pilot. I can plan routes, optimize charging, and explain travel metrics.
                                     </p>

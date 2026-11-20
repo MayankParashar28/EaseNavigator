@@ -22,31 +22,35 @@ export default function TrafficPanel({
 }: TrafficPanelProps) {
     return (
         <div className="glass-card mb-6 border border-white/5 bg-surface/50">
-            <div className="p-6 border-b border-white/5">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
+            <div className="p-4 sm:p-6 border-b border-white/5">
+                <div className="flex items-start sm:items-center justify-between gap-3">
+                    <div className="flex items-center space-x-3 min-w-0">
                         <div className="p-2 bg-surface-highlight rounded-lg border border-white/5">
                             <Navigation className="w-5 h-5 text-white" />
                         </div>
                         <div>
-                            <h2 className="text-xl font-bold text-white">Live Traffic Conditions</h2>
-                            <p className="text-sm text-color-text-secondary">Real-time traffic data and alerts</p>
+                            <div className="flex flex-wrap items-center gap-2">
+                                <h2 className="text-lg sm:text-xl font-bold text-white">Traffic Estimate</h2>
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">Simulated</span>
+                            </div>
+                            <p className="text-sm text-color-text-secondary">Sample conditions for this demo. Live traffic isn't connected yet.</p>
                         </div>
                     </div>
                     <button
                         onClick={onRefreshTraffic}
                         disabled={loadingTraffic}
-                        className="px-4 py-2 bg-neon-blue/10 text-neon-blue border border-neon-blue/20 rounded-lg text-sm font-bold hover:bg-neon-blue/20 disabled:opacity-50 transition-all duration-200 flex items-center space-x-2"
+                        aria-label="Refresh traffic estimate"
+                        className="shrink-0 px-3 sm:px-4 py-2 bg-neon-blue/10 text-neon-blue border border-neon-blue/20 rounded-lg text-sm font-bold hover:bg-neon-blue/20 disabled:opacity-50 transition-all duration-200 flex items-center space-x-2"
                     >
                         <RefreshCw className={`w-4 h-4 ${loadingTraffic ? 'animate-spin' : ''}`} />
-                        <span>Refresh</span>
+                        <span className="hidden sm:inline">Refresh</span>
                     </button>
                 </div>
             </div>
 
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
                 {/* Traffic Status & Key Metrics */}
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                     {/* Traffic Status */}
                     <div className={`rounded-xl p-4 border ${trafficData.congestionLevel === 'low' ? 'bg-neon-green/10 border-neon-green/20' :
                         trafficData.congestionLevel === 'medium' ? 'bg-yellow-500/10 border-yellow-500/20' :
@@ -84,18 +88,6 @@ export default function TrafficPanel({
                         <div className="text-sm text-red-400">
                             +{trafficData.currentDelay} min delay
                         </div>
-                    </div>
-
-                    {/* Data Quality */}
-                    <div className="bg-surface-highlight rounded-xl p-4 border border-white/5">
-                        <div className="flex items-center space-x-2 mb-2">
-                            <div className="w-4 h-4 rounded-full bg-neon-green/20 flex items-center justify-center border border-neon-green/50">
-                                <div className="w-2 h-2 bg-neon-green rounded-full"></div>
-                            </div>
-                            <span className="text-sm font-semibold text-color-text-secondary">Data Quality</span>
-                        </div>
-                        <div className="text-2xl font-bold text-white">{trafficData.confidence}%</div>
-                        <div className="text-sm text-color-text-tertiary">accuracy</div>
                     </div>
 
                     {/* Alternative Routes */}

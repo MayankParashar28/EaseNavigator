@@ -479,7 +479,7 @@ export default function TripPlanner({ onSignOut }: TripPlannerProps) {
                 <Navigation className="w-6 h-6 text-white" />
               </div>
               <span className="text-xl font-bold tracking-tight text-white group-hover:text-neon-blue transition-colors">
-                Neural Navigator
+                EaseNavigator
               </span>
             </div>
 
@@ -506,7 +506,8 @@ export default function TripPlanner({ onSignOut }: TripPlannerProps) {
               <button
                 onClick={onSignOut}
                 className="flex items-center space-x-2 text-color-text-secondary hover:text-white transition px-3 py-2"
-                title="Sign Out"
+                title="Sign out"
+                aria-label="Sign out"
               >
                 <LogOut className="w-5 h-5" />
               </button>
@@ -516,6 +517,8 @@ export default function TripPlanner({ onSignOut }: TripPlannerProps) {
             <div className="md:hidden">
               <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
+                aria-label={isMenuOpen ? 'Close menu' : 'Open menu'}
+                aria-expanded={isMenuOpen}
                 className="p-2 text-white hover:bg-white/5 rounded-xl transition-colors"
               >
                 {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}

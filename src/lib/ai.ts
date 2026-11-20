@@ -623,7 +623,7 @@ export async function getChatResponse(params: {
   const { text, history, context } = params;
 
   const systemPrompt = `
-    You are Neural Navigator's AI Assistant. Be helpful, concise, and technical.
+    You are EaseNavigator's EV trip assistant. Be helpful, concise, and technical.
     Current Context:
     - Origin: ${context?.origin || 'Not set'}
     - Destination: ${context?.destination || 'Not set'}

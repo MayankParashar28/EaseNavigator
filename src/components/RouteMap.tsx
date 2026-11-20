@@ -6,6 +6,7 @@ import ElevationProfile from './trip-results/ElevationProfile';
 import { clusterStations } from './route-map/clustering';
 import type { Station, Incident, RouteWithGeom, RouteSegment } from './route-map/types';
 import { MAP_ID, DARK_MAP_STYLE } from './route-map/mapStyle';
+import MapUnavailable from './route-map/MapUnavailable';
 import { Directions, TrafficLayer, Map3DController, UserLocationMarker } from './route-map/MapLayers';
 import { FlyoverController, SimulationHUD } from './route-map/Flyover';
 import { MapTooltip, MapLegend } from './route-map/MapOverlays';
@@ -244,10 +245,36 @@ export default function RouteMap({
 
   const clusters = useMemo(() => clusterStations(stations, zoom), [stations, zoom]);
 
+  // Google calls window.gm_authFailure when the key is invalid or not allowed
+  // for this domain; show our own message instead of Google's error popups.
+  const [mapAuthFailed, setMapAuthFailed] = useState(false);
+  useEffect(() => {
+    const w = window as unknown as { gm_authFailure?: () => void };
+    const previous = w.gm_authFailure;
+    w.gm_authFailure = () => {
+      setMapAuthFailed(true);
+      previous?.();
+    };
+    return () => {
+      w.gm_authFailure = previous;
+    };
+  }, []);
+
+  if (!apiKey || mapAuthFailed) {
+    return (
+      <MapUnavailable
+        reason={apiKey ? 'invalid-key' : 'missing-key'}
+        origin={origin}
+        destination={destination}
+        stationCount={stations.length}
+      />
+    );
+  }
+
   return (
     <div
       ref={mapContainerRef}
-      className={`bg-white rounded-xl shadow-lg overflow-hidden flex flex-col relative group transition-all duration-500 ${isFullscreen ? 'fixed inset-0 z-[100] h-screen w-screen rounded-none' : 'h-[450px] md:h-[600px]'
+      className={`bg-surface rounded-xl shadow-lg overflow-hidden flex flex-col relative group transition-all duration-500 ${isFullscreen ? 'fixed inset-0 z-[100] h-screen w-screen rounded-none' : 'h-full'
         }`}
     >
       {/* Header */}
@@ -734,42 +761,42 @@ export default function RouteMap({
 
           {/* Map Controls */}
           {/* Map Controls - Floating Dock */}
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-surface-highlight/90 backdrop-blur-xl p-1.5 rounded-full border border-white/10 shadow-2xl z-20">
+          <div role="toolbar" aria-label="Map controls" className="absolute bottom-3 sm:bottom-6 left-1/2 -translate-x-1/2 max-w-[calc(100%-1.5rem)] overflow-x-auto [scrollbar-width:none] flex items-center gap-1 bg-surface-highlight/90 backdrop-blur-xl p-1.5 rounded-full border border-white/10 shadow-2xl z-20">
             <button
               onClick={() => setShowWeather(!showWeather)}
-              className={`p-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95
+              className={`shrink-0 p-2.5 sm:p-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95
                     ${showWeather ? 'bg-blue-500/20 text-blue-400' : 'text-gray-400 hover:text-white hover:bg-white/10'}
                   `}
-              title="Weather & Env Overlay"
+              title="Weather & Env Overlay" aria-label="Weather & Env Overlay"
             >
               <CloudSun className="w-5 h-5" />
             </button>
 
             <button
               onClick={() => setShowTraffic(!showTraffic)}
-              className={`p-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95
+              className={`shrink-0 p-2.5 sm:p-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95
                     ${showTraffic ? 'bg-red-500/20 text-red-400' : 'text-gray-400 hover:text-white hover:bg-white/10'}
                   `}
-              title="Traffic"
+              title="Traffic" aria-label="Traffic"
             >
               <Navigation className="w-5 h-5" />
             </button>
-            <div className="w-px h-6 bg-white/10 mx-1"></div>
+            <div className="shrink-0 w-px h-6 bg-white/10 mx-1"></div>
 
             <button
               onClick={() => setMapType(mapType === 'roadmap' ? 'hybrid' : 'roadmap')}
-              className={`p-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95
+              className={`shrink-0 p-2.5 sm:p-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95
                     ${mapType === 'hybrid' ? 'bg-blue-500/20 text-blue-400' : 'text-gray-400 hover:text-white hover:bg-white/10'}
                    `}
-              title="Satellite"
+              title="Satellite" aria-label="Satellite"
             >
               <Layers className="w-5 h-5" />
             </button>
 
             <button
               onClick={fitRouteBounds}
-              className="p-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95 text-gray-400 hover:text-white hover:bg-white/10"
-              title="Fit Route to Map"
+              className="shrink-0 p-2.5 sm:p-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95 text-gray-400 hover:text-white hover:bg-white/10"
+              title="Fit Route to Map" aria-label="Fit Route to Map"
             >
               <ArrowRightLeft className="w-5 h-5 rotate-90" />
             </button>
@@ -779,56 +806,56 @@ export default function RouteMap({
                 setTilt(tilt === 0 ? 45 : 0);
                 setHeading(heading === 0 ? 90 : 0);
               }}
-              className={`p-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95
+              className={`shrink-0 p-2.5 sm:p-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95
                     ${tilt > 0 ? 'bg-purple-500/20 text-neon-purple' : 'text-gray-400 hover:text-white hover:bg-white/10'}
                   `}
-              title="3D Mode"
+              title="3D Mode" aria-label="3D Mode"
             >
               <Mountain className="w-5 h-5" />
             </button>
 
-            <div className="w-px h-6 bg-white/10 mx-1"></div>
+            <div className="shrink-0 w-px h-6 bg-white/10 mx-1"></div>
 
             <button
               onClick={() => setShowLegend(!showLegend)}
-              className={`p-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95
+              className={`shrink-0 p-2.5 sm:p-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95
                     ${showLegend ? 'bg-neon-blue/20 text-neon-blue' : 'text-gray-400 hover:text-white hover:bg-white/10'}
                   `}
-              title="Map Legend"
+              title="Map Legend" aria-label="Map Legend"
             >
               <Info className="w-5 h-5" />
             </button>
 
             <button
               onClick={() => setIsMeasuring(!isMeasuring)}
-              className={`p-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95
+              className={`shrink-0 p-2.5 sm:p-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95
                     ${isMeasuring ? 'bg-yellow-500/20 text-yellow-400' : 'text-gray-400 hover:text-white hover:bg-white/10'}
                   `}
-              title="Measure Distance"
+              title="Measure Distance" aria-label="Measure Distance"
             >
               <Activity className="w-5 h-5" />
             </button>
 
             <button
               onClick={toggleFullscreen}
-              className={`p-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95 text-gray-400 hover:text-white hover:bg-white/10`}
-              title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+              className={`shrink-0 p-2.5 sm:p-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95 text-gray-400 hover:text-white hover:bg-white/10`}
+              title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"} aria-label={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
             >
               {isFullscreen ? <X className="w-5 h-5" /> : <Layers className="w-5 h-5 rotate-45" />}
             </button>
 
             <button
               onClick={() => setIsFlying(!isFlying)}
-              className={`p-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95
+              className={`shrink-0 p-2.5 sm:p-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95
                     ${isFlying ? 'bg-neon-green text-surface' : 'bg-white text-surface hover:bg-white/90'}
                   `}
-              title={isFlying ? "Pause" : "Flyover"}
+              title={isFlying ? "Pause" : "Flyover"} aria-label={isFlying ? "Pause" : "Flyover"}
             >
               {isFlying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current" />}
             </button>
 
             {isFlying && (
-              <div className="flex bg-white/5 rounded-full p-1 ml-1 border border-white/10">
+              <div className="shrink-0 flex bg-white/5 rounded-full p-1 ml-1 border border-white/10">
                 {([1, 2, 4] as const).map((speed) => (
                   <button
                     key={speed}
@@ -851,11 +878,11 @@ export default function RouteMap({
                     Cached
                   </div>
                 )}
-                <div className="w-px h-6 bg-white/10 mx-1"></div>
+                <div className="shrink-0 w-px h-6 bg-white/10 mx-1"></div>
                 <button
                   onClick={onFindNearby}
-                  className="p-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95 bg-neon-purple/20 text-neon-purple hover:bg-neon-purple/30"
-                  title="Find Nearby Chargers"
+                  className="shrink-0 p-2.5 sm:p-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95 bg-neon-purple/20 text-neon-purple hover:bg-neon-purple/30"
+                  title="Find Nearby Chargers" aria-label="Find Nearby Chargers"
                 >
                   <Zap className="w-5 h-5 fill-current" />
                 </button>

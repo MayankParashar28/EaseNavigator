@@ -12,6 +12,7 @@ interface Station {
     network?: string;
     availablePorts?: number;
     totalPorts?: number;
+    estimatedWaitTime?: number;
     pricing?: {
         perKWh: number;
         currency: string;
@@ -35,10 +36,10 @@ interface ChargingStopCardProps {
 export default function ChargingStopCard({ station, stopNumber, arrivalSOC, chargeTime, alternatives = [] }: ChargingStopCardProps) {
     const [showAlternatives, setShowAlternatives] = useState(false);
 
-    // Simulated availability if not provided
+    // Availability, wait and price are simulated estimates (stable per station)
     const total = station.totalPorts || 4;
-    const available = station.availablePorts ?? Math.floor(Math.random() * (total + 1));
-    const queueTime = available === 0 ? Math.floor(Math.random() * 15) + 5 : 0;
+    const available = Math.min(station.availablePorts ?? total, total);
+    const queueTime = available === 0 ? station.estimatedWaitTime ?? 10 : 0;
 
     return (
         <div className="glass-panel border border-white/10 overflow-hidden transition-all duration-300 hover:border-neon-purple/30 group hover-tilt relative">
@@ -52,7 +53,7 @@ export default function ChargingStopCard({ station, stopNumber, arrivalSOC, char
                             Stop #{stopNumber}
                         </span>
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${available > 0 ? 'state-success' : 'state-error'}`}>
-                            {available}/{total} Available
+                            {available}/{total} free (est.)
                         </span>
                     </div>
                     <h4 className="text-lg font-bold text-white leading-tight truncate" title={station.title}>{station.title}</h4>
@@ -75,7 +76,7 @@ export default function ChargingStopCard({ station, stopNumber, arrivalSOC, char
                     <span className="text-sm font-black text-white">{chargeTime}m</span>
                 </div>
                 <div className="flex flex-col items-center p-2 rounded-xl bg-white/5">
-                    <span className="text-[9px] font-bold text-gray-500 uppercase tracking-tighter mb-1">Price</span>
+                    <span className="text-[9px] font-bold text-gray-500 uppercase tracking-tighter mb-1" title="Estimated price">Price (est.)</span>
                     <span className="text-sm font-black text-neon-blue">${station.pricing?.perKWh || '0.35'}/kWh</span>
                 </div>
             </div>

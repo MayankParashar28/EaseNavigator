@@ -3,7 +3,7 @@
 > **Smart, sustainable, and data-driven travel for electric vehicle users.**
 
 EaseNavigator AI is an intelligent route planner built for electric vehicle (EV) users.  
-It combines real-time data, smart energy predictions, and AI-powered optimization to plan the most efficient and eco-friendly trip possible — while keeping users informed about charging stations, traffic, and environmental conditions along the way.
+It combines routing, charging-station data, weather-aware energy predictions, and optional AI recommendations to plan the most efficient and eco-friendly trip possible — while keeping users informed about charging stations, traffic, and environmental conditions along the way.
 
 ---
 
@@ -22,7 +22,8 @@ It combines real-time data, smart energy predictions, and AI-powered optimizatio
 
 ###  Stable Data Simulation
 - **Consistent World State**: Amenities (Restrooms, WiFi, Food) and Traffic Levels are pseudo-randomly consolidated. Revisiting a station always yields the same data, preventing "flicker" and ensuring a realistic demo experience.
-- **Traffic Awareness**: Red/Yellow connecting lines on the timeline reflect real-time traffic segments between stops.
+- **Traffic Estimate (simulated)**: Traffic levels and incidents are sample data and are labelled as such in the app. Live traffic isn't connected yet.
+- **Station details (simulated)**: Availability, wait times, prices and amenities are estimates, seeded per station so they stay consistent. Station locations and power ratings are real (OpenChargeMap).
 
 ###  My Garage
 - **Vehicle Management**: Save and manage your preferred EV model with real-time range and battery capacity tracking.
@@ -146,10 +147,18 @@ Copy `.env.example` to `.env` and fill in your keys:
 | `VITE_OPENWEATHER_API_KEY` | Optional live weather; simulated if unset | Yes |
 | `OCM_API_KEY` | OpenChargeMap charging stations | **No**, added server-side by `/api/ocm` |
 | `GEMINI_API_KEY` | Gemini AI recommendations & assistant | **No**, added server-side by `/api/gemini` |
+| `ALLOWED_ORIGINS` | Optional extra domains allowed to call `/api/*` | No |
+| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Optional shared rate limiting for `/api/*` | No |
 
 Secret keys (no `VITE_` prefix) are never bundled into the frontend. In development the Vite dev
 server proxies `/api/ocm` and `/api/gemini` and injects them; in production the Vercel functions in
-`api/` do the same. If `GEMINI_API_KEY` is missing, the app falls back to local heuristics.
+`api/` do the same. If `GEMINI_API_KEY` is missing, the app falls back to local heuristics. Without
+`VITE_GOOGLE_MAPS_API_KEY` the app still works and shows a "Map unavailable" panel instead of the map.
+
+**API protection.** `/api/gemini` and `/api/ocm` only answer requests from your own site and limit each
+visitor (30 AI requests and 60 station lookups per minute). Set the Upstash variables to share those
+limits across all serverless instances; otherwise each instance counts separately. Address search
+(Nominatim) is limited to 1 request per second and cached, as its usage policy requires.
 
 ###  Installation
 
@@ -169,10 +178,11 @@ server proxies `/api/ocm` and `/api/gemini` and injects them; in production the 
    npm run dev
    ```
 
-4. **Check the code** (type-check + lint)
+4. **Check the code** (type-check, lint, tests)
    ```bash
-   npm run typecheck && npm run lint
+   npm run typecheck && npm run lint && npm test
    ```
+   The same checks run in GitHub Actions on every pull request.
 
 ###  Deploying to Vercel
 
@@ -197,12 +207,14 @@ EaseNavigator/
 ├── src/
 │   ├── components/
 │   │   ├── NeuralAssistant.tsx    # AI Voice/Text command center
-│   │   ├── RouteMap.tsx           # 3D Map & Flyover engine
+│   │   ├── RouteMap.tsx           # Map container (layers, markers, panels)
+│   │   ├── route-map/             # Map sub-modules: flyover, overlays, clustering
 │   │   ├── TripPlanner.tsx        # Main orchestration logic
 │   │   ├── TripResults.tsx        # Analytics & bento-grid stats
 │   │   └── UserPreferences.tsx    # "My Garage" management
 │   ├── lib/
 │   │   ├── ai.ts                  # Gemini integration layer
+│   │   ├── openData.ts            # Cached, throttled Nominatim + OSRM
 │   │   ├── weatherService.ts      # Environmental calculations
 │   │   └── localStorage.ts        # Persistent storage & local profiles
 │   └── main.tsx                   # App entry

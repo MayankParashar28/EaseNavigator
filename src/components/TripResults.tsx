@@ -398,17 +398,20 @@ export default function TripResults({ results, onBack, onFindNearby }: TripResul
         setTripName={setTripName}
       />
 
-      <div className="max-w-7xl mx-auto px-6 py-10 relative z-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-10 relative z-10">
         {/* Banner */}
-        <div className="glass-card p-6 md:p-10 mb-6 md:mb-10 animate-enter-up border border-neon-purple/20 relative overflow-hidden">
+        <div className="glass-card p-5 md:p-8 mb-6 md:mb-8 animate-enter-up border border-neon-purple/20 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-neon-purple/5 rounded-full blur-[80px]"></div>
           <div className="flex items-center justify-between flex-wrap gap-4 relative z-10">
             <div>
-              <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">
-                Ready for your journey to <span className="text-neon-purple">{results.destination}</span>?
+              <h2 className="text-xl sm:text-2xl font-bold text-white mb-2 tracking-tight">
+                Your trip to <span className="text-neon-purple">{results.destination}</span>
               </h2>
               <p className="text-color-text-secondary">
-                We've optimized your route using real-time traffic data and AI-powered efficiency models.
+                {Math.round(selectedRoute.distance)} mi · about {Math.floor(Math.round(selectedRoute.duration) / 60)}h {Math.round(selectedRoute.duration) % 60}m
+                {totalBatteryUsage >= initialBattery
+                  ? (enrichedStations.length > 0 ? ' · charging needed, see the charging plan' : ' · charging needed, but no stations were found nearby')
+                  : ' · no charging needed'}
               </p>
             </div>
           </div>
@@ -444,37 +447,18 @@ export default function TripResults({ results, onBack, onFindNearby }: TripResul
           loading={aiLoading}
         />
 
-        {trafficData && (
-          <TrafficPanel
-            trafficData={trafficData}
-            selectedRoute={selectedRoute}
-            loadingTraffic={loadingTraffic}
-            activeAlerts={activeAlerts}
-            onRefreshTraffic={handleRefreshTraffic}
-            onDismissAlert={(id) => {
-              const newDismissed = new Set(dismissedAlerts)
-              newDismissed.add(id)
-              setDismissedAlerts(newDismissed)
-            }}
-            onViewAlternatives={() => { }}
-          />
-        )}
-
         <SmartRouteSelector
           routes={results.routes}
           selectedRouteId={selectedRoute.id}
           onSelectRoute={setSelectedRoute}
         />
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-10">
           <div className="lg:col-span-2">
-            <TripIntelligence
-              aiAnalysis={aiAnalysis}
-              socOptimization={socOptimization}
-            />
 
-            <div className="mt-8 flex flex-col gap-6">
-              <div className="w-full relative h-[450px] md:h-[600px] rounded-3xl overflow-hidden border border-white/10 shadow-2xl isolate group">
+
+            <div className="flex flex-col gap-6">
+              <div className="w-full relative h-[420px] md:h-[600px] rounded-3xl overflow-hidden border border-white/10 shadow-2xl isolate group">
                 <RouteMap
                   route={selectedRoute}
                   allRoutes={(results.routes || []).map((r, i) => ({
@@ -527,6 +511,12 @@ export default function TripResults({ results, onBack, onFindNearby }: TripResul
                 />
               </div>
             </div>
+            <div className="mt-8">
+            <TripIntelligence
+                aiAnalysis={aiAnalysis}
+                socOptimization={socOptimization}
+              />
+            </div>
           </div>
           <div className="lg:col-span-1">
             {/* Battery Projection Card - Moved here from RouteList */}
@@ -556,7 +546,9 @@ export default function TripResults({ results, onBack, onFindNearby }: TripResul
 
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-color-text-secondary">After Trip</span>
+                        <span className="text-sm font-medium text-color-text-secondary">
+                          {totalBatteryUsage >= initialBattery ? 'If you skip charging' : 'On arrival'}
+                        </span>
                         <span className="text-sm font-bold text-white">
                           {Math.max(0, initialBattery - totalBatteryUsage)}%
                         </span>
@@ -601,6 +593,24 @@ export default function TripResults({ results, onBack, onFindNearby }: TripResul
               </div>
             )}
           </div>
+        </div>
+
+        <div className="mt-8">
+        {trafficData && (
+          <TrafficPanel
+            trafficData={trafficData}
+            selectedRoute={selectedRoute}
+            loadingTraffic={loadingTraffic}
+            activeAlerts={activeAlerts}
+            onRefreshTraffic={handleRefreshTraffic}
+            onDismissAlert={(id) => {
+              const newDismissed = new Set(dismissedAlerts)
+              newDismissed.add(id)
+              setDismissedAlerts(newDismissed)
+            }}
+            onViewAlternatives={() => { }}
+          />
+        )}
         </div>
       </div>
       <NeuralAssistant

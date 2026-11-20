@@ -33,29 +33,29 @@ export default function Auth() {
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-neon-green/10 rounded-full blur-[100px] animate-float animation-delay-400"></div>
       </div>
 
-      <div className="max-w-6xl w-full grid grid-cols-1 lg:grid-cols-2 gap-12 items-center relative z-10">
+      <div className="max-w-6xl w-full grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center relative z-10">
 
         {/* Left Side: Hero Content */}
-        <div className="space-y-8 animate-enter-up">
+        <div className="space-y-6 lg:space-y-8 animate-enter-up">
           <div className="space-y-2">
-            <h1 className="text-6xl md:text-7xl font-bold leading-none tracking-tighter">
-              <span className="text-white">Neural</span>
+            <h1 className="text-5xl md:text-7xl font-bold leading-none tracking-tighter">
+              <span className="text-white">Ease</span>
               <br />
               <span className="text-gradient">Navigator</span>
             </h1>
-            <p className="text-xl text-color-text-secondary max-w-lg leading-relaxed">
-              Experience the next generation of EV route planning using advanced AI to predict energy usage and optimize your journey.
+            <p className="text-lg md:text-xl text-color-text-secondary max-w-lg leading-relaxed">
+              Plan EV road trips with realistic range estimates, charging stops along your route, and weather-aware battery predictions.
             </p>
           </div>
 
-          <div className="space-y-6">
+          <div className="hidden lg:block space-y-6">
             <div className="flex items-center space-x-4 group p-4 rounded-xl hover:bg-white/5 transition-colors duration-300 border border-transparent hover:border-white/5">
               <div className="p-3 bg-surface-highlight rounded-xl group-hover:bg-neon-purple/20 group-hover:text-neon-purple transition-all duration-300 text-white">
                 <Brain className="w-8 h-8" />
               </div>
               <div>
-                <h3 className="text-white font-bold text-lg">AI-Core Optimization</h3>
-                <p className="text-color-text-tertiary">Real-time learning algorithms adapt to your driving style.</p>
+                <h3 className="text-white font-bold text-lg">Range you can trust</h3>
+                <p className="text-color-text-tertiary">Estimates account for speed, weather and your battery's health.</p>
               </div>
             </div>
 
@@ -64,8 +64,8 @@ export default function Auth() {
                 <Zap className="w-8 h-8" />
               </div>
               <div>
-                <h3 className="text-white font-bold text-lg">Smart Charging Network</h3>
-                <p className="text-color-text-tertiary">Seamless integration with global charging infrastructure.</p>
+                <h3 className="text-white font-bold text-lg">Charging stops, planned</h3>
+                <p className="text-color-text-tertiary">Finds fast chargers along your route from OpenChargeMap.</p>
               </div>
             </div>
           </div>
@@ -73,17 +73,17 @@ export default function Auth() {
 
         {/* Right Side: Auth Form */}
         <div className="w-full max-w-md mx-auto animate-enter-up animation-delay-200">
-          <div className="glass-card p-8 md:p-10 relative overflow-hidden">
+          <div className="glass-card p-6 sm:p-8 md:p-10 relative overflow-hidden">
             {/* Decorative shine effect */}
             <div className="absolute top-0 right-0 -mr-16 -mt-16 w-32 h-32 bg-white/5 rounded-full blur-2xl"></div>
 
             <div className="relative z-10">
-              <div className="text-center mb-10">
+              <div className="text-center mb-8 md:mb-10">
                 <h2 className="text-3xl font-bold text-white mb-2">
-                  {isSignUp ? 'Join the Future' : 'Welcome Back'}
+                  {isSignUp ? 'Create your account' : 'Welcome back'}
                 </h2>
                 <p className="text-color-text-secondary">
-                  {isSignUp ? 'Create your neural profile' : 'Access your dashboard'}
+                  {isSignUp ? 'Save your vehicle and trips' : 'Sign in to see your saved trips'}
                 </p>
               </div>
 
@@ -100,6 +100,7 @@ export default function Auth() {
                   <input
                     id="email"
                     type="email"
+                    autoComplete="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="input-modern"
@@ -113,6 +114,7 @@ export default function Auth() {
                   <input
                     id="password"
                     type="password"
+                    autoComplete={isSignUp ? 'new-password' : 'current-password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="input-modern"
@@ -131,7 +133,7 @@ export default function Auth() {
                       <Loader2 className="w-4 h-4 animate-spin" /> Processing
                     </span>
                   ) : (
-                    isSignUp ? 'Initialize Account' : 'Connect Interface'
+                    isSignUp ? 'Create account' : 'Sign in'
                   )}
                 </button>
               </form>
@@ -142,7 +144,7 @@ export default function Auth() {
 
               <div className="mt-8 pt-6 border-t border-white/10 text-center">
                 <p className="text-color-text-secondary text-sm mb-4">
-                  {isSignUp ? 'Already have access?' : 'New to Neural Navigator?'}
+                  {isSignUp ? 'Already have an account?' : 'New to EaseNavigator?'}
                 </p>
                 <button
                   onClick={() => {
@@ -151,7 +153,7 @@ export default function Auth() {
                   }}
                   className="text-neon-blue hover:text-white font-medium transition-all duration-200 hover:underline decoration-neon-blue/50 underline-offset-4"
                 >
-                  {isSignUp ? 'Sign in to existing account' : 'Create new account'}
+                  {isSignUp ? 'Sign in instead' : 'Create an account'}
                 </button>
               </div>
             </div>
