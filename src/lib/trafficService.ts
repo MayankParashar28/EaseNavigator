@@ -133,7 +133,7 @@ export class TrafficService {
         id: 'inc1',
         type: 'construction',
         severity: 'medium',
-        description: 'Road construction on I-95 North',
+        description: 'Road construction ahead (sample)',
         location: {
           latitude: (origin[0] + destination[0]) / 2 + 0.002,
           longitude: (origin[1] + destination[1]) / 2 + 0.002
@@ -151,7 +151,7 @@ export class TrafficService {
         id: 'inc2',
         type: 'accident',
         severity: 'severe',
-        description: 'Multi-vehicle collision on Main Hwy',
+        description: 'Collision reported on route (sample)',
         location: {
           latitude: (origin[0] + destination[0]) / 2 - 0.005,
           longitude: (origin[1] + destination[1]) / 2 - 0.005
@@ -169,7 +169,7 @@ export class TrafficService {
         id: 'inc3',
         type: 'weather',
         severity: 'medium',
-        description: 'Heavy Rain / Flood Warning',
+        description: 'Heavy rain advisory (sample)',
         location: {
           latitude: (origin[0] + destination[0]) / 2 + 0.008,
           longitude: (origin[1] + destination[1]) / 2 - 0.003

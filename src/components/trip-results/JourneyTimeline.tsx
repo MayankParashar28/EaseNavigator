@@ -39,17 +39,17 @@ interface JourneyTimelineProps {
 
 export default function JourneyTimeline({ origin, destination, stops, totalDuration, hoveredIndex, onHover, onNodeClick }: JourneyTimelineProps) {
     const nodes: TimelineNode[] = [
-        { type: 'start', label: origin, subLabel: 'Departure', time: '0:00' },
+        { type: 'start', label: origin, subLabel: 'Departure', time: 'Now' },
         ...stops.map((s, i) => ({
             type: 'stop' as const,
             label: s.location,
             subLabel: `Charging Stop ${i + 1}`,
-            duration: `${s.dwellTime}m`,
+            duration: `${Math.round(s.dwellTime)}m`,
             soc: s.arrivalSOC,
             amenities: s.amenities,
             trafficLevel: s.trafficLevel
         })),
-        { type: 'end', label: destination, subLabel: 'Arrival', time: `${Math.floor(totalDuration / 60)}h ${totalDuration % 60}m` }
+        { type: 'end', label: destination, subLabel: 'Arrival', time: `${Math.floor(Math.round(totalDuration) / 60)}h ${Math.round(totalDuration) % 60}m` }
     ];
 
     return (

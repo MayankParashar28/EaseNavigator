@@ -165,6 +165,18 @@ export interface ProcessedChargingStation {
 // OpenChargeMap API configuration
 const OPENCHARGE_API_BASE = API_CONFIG.OPENCHARGE.BASE_URL;
 
+/** Deterministic pseudo-random generator (mulberry32) seeded by a number. */
+export function seededRandom(seed: number): () => number {
+  let a = (seed >>> 0) || 0x9e3779b9;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 export class ChargingStationService {
   private static instance: ChargingStationService;
   private cache = new Map<string, { data: ProcessedChargingStation[], timestamp: number }>();
@@ -179,6 +191,9 @@ export class ChargingStationService {
 
   private processStationData(station: OpenChargeStation): ProcessedChargingStation {
     const address = station.AddressInfo;
+    // Simulated fields are seeded by station ID so a station always shows the
+    // same availability, pricing and amenities (no flicker between visits).
+    const rand = seededRandom(station.ID);
     const connections = station.Connections || [];
 
     // Find the highest power connection
@@ -191,55 +206,55 @@ export class ChargingStationService {
     const totalPorts = connections.reduce((sum, conn) => sum + (conn.Quantity || 1), 0);
 
     // Generate enhanced data (simulated for demo purposes)
-    const availablePorts = Math.floor(Math.random() * (totalPorts + 1));
-    const estimatedWaitTime = availablePorts === 0 ? Math.floor(Math.random() * 30) + 5 : 0;
+    const availablePorts = Math.floor(rand() * (totalPorts + 1));
+    const estimatedWaitTime = availablePorts === 0 ? Math.floor(rand() * 30) + 5 : 0;
 
     // Generate pricing data (simulated)
     const pricing = {
-      perKWh: Math.round((Math.random() * 0.3 + 0.1) * 100) / 100, // $0.10 - $0.40 per kWh
-      perMinute: maxPowerConnection.PowerKW > 50 ? Math.round((Math.random() * 0.5 + 0.1) * 100) / 100 : undefined,
-      sessionFee: Math.random() > 0.7 ? Math.round((Math.random() * 5 + 1) * 100) / 100 : 0,
+      perKWh: Math.round((rand() * 0.3 + 0.1) * 100) / 100, // $0.10 - $0.40 per kWh
+      perMinute: maxPowerConnection.PowerKW > 50 ? Math.round((rand() * 0.5 + 0.1) * 100) / 100 : undefined,
+      sessionFee: rand() > 0.7 ? Math.round((rand() * 5 + 1) * 100) / 100 : 0,
       currency: 'USD'
     };
 
     // Generate amenities data (simulated)
     const amenities = {
-      restrooms: Math.random() > 0.3,
-      foodNearby: Math.random() > 0.4,
-      shopping: Math.random() > 0.6,
-      wifi: Math.random() > 0.5,
-      covered: Math.random() > 0.7,
-      security: Math.random() > 0.6,
-      lighting: Math.random() > 0.2
+      restrooms: rand() > 0.3,
+      foodNearby: rand() > 0.4,
+      shopping: rand() > 0.6,
+      wifi: rand() > 0.5,
+      covered: rand() > 0.7,
+      security: rand() > 0.6,
+      lighting: rand() > 0.2
     };
 
     // Generate accessibility data (simulated)
     const accessibility = {
-      wheelchairAccessible: Math.random() > 0.4,
-      disabledParking: Math.random() > 0.5,
-      audioAnnouncements: Math.random() > 0.8
+      wheelchairAccessible: rand() > 0.4,
+      disabledParking: rand() > 0.5,
+      audioAnnouncements: rand() > 0.8
     };
 
     // Generate reviews data (simulated)
-    const averageRating = Math.round((Math.random() * 2 + 3) * 10) / 10; // 3.0 - 5.0
-    const totalReviews = Math.floor(Math.random() * 50) + 5;
+    const averageRating = Math.round((rand() * 2 + 3) * 10) / 10; // 3.0 - 5.0
+    const totalReviews = Math.floor(rand() * 50) + 5;
     const reviews = {
       averageRating,
       totalReviews,
       recentReviews: Array.from({ length: Math.min(3, totalReviews) }, (_, i) => ({
-        rating: Math.floor(Math.random() * 2) + 4, // 4-5 stars
-        comment: ['Great station!', 'Fast charging', 'Clean and safe', 'Good location', 'Easy to find'][Math.floor(Math.random() * 5)],
-        date: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        rating: Math.floor(rand() * 2) + 4, // 4-5 stars
+        comment: ['Great station!', 'Fast charging', 'Clean and safe', 'Good location', 'Easy to find'][Math.floor(rand() * 5)],
+        date: new Date(Date.now() - rand() * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         user: `User${i + 1}`
       }))
     };
 
     // Calculate environmental impact
-    const co2Saved = Math.round((Math.random() * 50 + 20) * 100) / 100; // 20-70 kg CO2 saved
+    const co2Saved = Math.round((rand() * 50 + 20) * 100) / 100; // 20-70 kg CO2 saved
     const environmentalImpact = {
       co2Saved,
       equivalentTrees: Math.round(co2Saved / 22), // 1 tree absorbs ~22 kg CO2/year
-      renewablePercentage: Math.round(Math.random() * 40 + 30) // 30-70% renewable
+      renewablePercentage: Math.round(rand() * 40 + 30) // 30-70% renewable
     };
 
     return {
@@ -252,7 +267,7 @@ export class ChargingStationService {
         .join(', '),
       city: address.Town || '',
       state: address.StateOrProvince || '',
-      country: address.Country.Title || '',
+      country: address.Country?.Title || '',
       distance: address.Distance || 0,
       powerKW: maxPowerConnection.PowerKW || 0,
       connectionType: maxPowerConnection.ConnectionType?.Title || 'Unknown',
@@ -285,7 +300,7 @@ export class ChargingStationService {
     maxResults: number = 50,
     preferredAmenities: string[] = []
   ): Promise<ProcessedChargingStation[]> {
-    const cacheKey = `${latitude},${longitude},${radius}`;
+    const cacheKey = `${latitude},${longitude},${radius},${maxResults},${[...preferredAmenities].sort().join('|')}`;
     const cached = this.cache.get(cacheKey);
 
     // Return cached data if still valid

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { MapPin, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { searchPlaces, type Place } from '../lib/openData';
 
 interface LocationAutocompleteProps {
     value: string;
@@ -11,12 +12,7 @@ interface LocationAutocompleteProps {
     className?: string;
 }
 
-interface Suggestion {
-    place_id: string;
-    display_name: string;
-    lat: string;
-    lon: string;
-}
+type Suggestion = Place;
 
 export default function LocationAutocomplete({
     value,
@@ -32,6 +28,7 @@ export default function LocationAutocomplete({
     const [loading, setLoading] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
     const debounceTimer = useRef<ReturnType<typeof setTimeout>>();
+    const requestRef = useRef<AbortController | null>(null);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -43,26 +40,35 @@ export default function LocationAutocomplete({
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    // Cancel pending work on unmount
+    useEffect(() => () => {
+        if (debounceTimer.current) clearTimeout(debounceTimer.current);
+        requestRef.current?.abort();
+    }, []);
+
     const fetchSuggestions = async (query: string) => {
-        if (query.length < 3) {
+        // Only the latest keystroke's request matters; cancel older ones so a
+        // slow response can't overwrite newer suggestions.
+        requestRef.current?.abort();
+        if (query.trim().length < 3) {
             setSuggestions([]);
+            setIsOpen(false);
+            setLoading(false);
             return;
         }
 
+        const controller = new AbortController();
+        requestRef.current = controller;
         setLoading(true);
         try {
-            const res = await fetch(
-                `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`
-            );
-            if (res.ok) {
-                const data = await res.json();
-                setSuggestions(data);
-                setIsOpen(data.length > 0);
-            }
+            const data = await searchPlaces(query, { limit: 5, signal: controller.signal });
+            if (controller.signal.aborted) return;
+            setSuggestions(data);
+            setIsOpen(data.length > 0);
         } catch (err) {
-            console.error('Autocomplete error:', err);
+            if ((err as Error).name !== 'AbortError') console.error('Autocomplete error:', err);
         } finally {
-            setLoading(false);
+            if (requestRef.current === controller) setLoading(false);
         }
     };
 
@@ -73,7 +79,7 @@ export default function LocationAutocomplete({
         if (debounceTimer.current) clearTimeout(debounceTimer.current);
         debounceTimer.current = setTimeout(() => {
             fetchSuggestions(newValue);
-        }, 300);
+        }, 450);
     };
 
     const handleSelect = (s: Suggestion) => {

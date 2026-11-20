@@ -1,115 +1,16 @@
-import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import {
-  APIProvider,
-  Map,
-  useMapsLibrary,
-  useMap,
-  AdvancedMarker,
-  Pin,
-  InfoWindow,
-  MapMouseEvent
-} from '@vis.gl/react-google-maps';
-import { Zap, Navigation, Layers, Mountain, Play, Pause, Sparkles, Loader2, AlertTriangle, Construction, MapPin, CloudSun, Wind, Activity, Car, CloudRain, ArrowRightLeft, Snowflake, Info, X } from 'lucide-react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { APIProvider, Map, useMapsLibrary, useMap, AdvancedMarker, Pin, InfoWindow, MapMouseEvent } from '@vis.gl/react-google-maps';
+import { Zap, Navigation, Layers, Mountain, Play, Pause, Sparkles, Loader2, AlertTriangle, Construction, MapPin, CloudSun, Wind, Activity, Car, CloudRain, ArrowRightLeft, Info, X } from 'lucide-react';
 import { generateStopDescription } from '../lib/ai';
 import ElevationProfile from './trip-results/ElevationProfile';
-import { getRouteEnvData, RouteEnvData } from '../lib/envService';
-
-// Keeps a ref pointing at the latest value, so effects can call the newest
-// callback/props without re-running (and tearing down) every render.
-function useLatest<T>(value: T) {
-  const ref = useRef(value);
-  useEffect(() => {
-    ref.current = value;
-  });
-  return ref;
-}
-
-interface CircleProps extends google.maps.CircleOptions {
-  center: google.maps.LatLngLiteral;
-  radius: number;
-}
-
-const Circle = (props: CircleProps) => {
-  const map = useMap();
-  const [circle, setCircle] = useState<google.maps.Circle | null>(null);
-  const propsRef = useLatest(props);
-
-  useEffect(() => {
-    if (!map) return;
-    const newCircle = new google.maps.Circle({
-      ...propsRef.current,
-      map
-    });
-    setCircle(newCircle);
-
-    return () => {
-      newCircle.setMap(null);
-    };
-  }, [map, propsRef]);
-
-  useEffect(() => {
-    if (circle) {
-      circle.setOptions(props);
-    }
-  }, [circle, props]);
-
-  return null;
-};
-
-type ClusterItem =
-  | { type: 'single'; station: Station; lat: number; lng: number }
-  | { type: 'cluster'; stations: Station[]; lat: number; lng: number };
-
-export interface Station {
-  id: number;
-  title: string;
-  latitude: number;
-  longitude: number;
-  address?: string;
-  powerKW?: number;
-  connectionType?: string;
-  network?: string;
-  isFastCharge?: boolean;
-  isRecommended?: boolean;
-  availableConnectors?: number;
-  totalConnectors?: number;
-  arrivalSOC?: number;
-  chargeTime?: number;
-}
-
-interface Incident {
-  id: string;
-  type: string;
-  severity: string;
-  description: string;
-  location: { latitude: number; longitude: number };
-  delayMinutes?: number;
-  avoidanceMetrics?: {
-    extraTime: number;
-    costSaving: number;
-    efficiencyGain: number;
-  };
-}
-
-export interface RouteWithGeom {
-  id: string;
-  name: string;
-  geometry?: [number, number][];
-  distance: number;
-  duration: number;
-  batteryUsage?: number;
-  chargingStops?: number;
-  weatherConditions?: {
-    start: { temp: number, condition: string, airQuality: string }
-    midpoint: { temp: number, condition: string, airQuality: string }
-    end: { temp: number, condition: string, airQuality: string }
-  }
-  energyEfficiency?: number;
-  estimatedCost?: number;
-  type?: 'fastest' | 'efficient';
-  stopsCount?: number;
-  costSaving?: number;
-}
+import { clusterStations } from './route-map/clustering';
+import type { Station, Incident, RouteWithGeom, RouteSegment } from './route-map/types';
+import { MAP_ID, DARK_MAP_STYLE } from './route-map/mapStyle';
+import MapUnavailable from './route-map/MapUnavailable';
+import { Directions, TrafficLayer, Map3DController, UserLocationMarker } from './route-map/MapLayers';
+import { FlyoverController, SimulationHUD } from './route-map/Flyover';
+import { MapTooltip, MapLegend } from './route-map/MapOverlays';
+import { WeatherOverlay, MultiRouteDisplay, RouteSegments } from './route-map/RouteOverlays';
 
 interface RouteMapProps {
   route: RouteWithGeom;
@@ -126,724 +27,6 @@ interface RouteMapProps {
   onHoverSegment?: (index: number | null) => void;
   focusedStation?: Station | null;
   onSelectStation?: (station: Station | null) => void;
-}
-
-// mapId removed — demo ID 'bf51a910020fa25a' only works with Google's demo key.
-// To use AdvancedMarkers / cloud map styles, add your own Map ID in Google Cloud Console
-// and set VITE_GOOGLE_MAPS_MAP_ID in .env
-const MAP_ID = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID || undefined;
-
-const DARK_MAP_STYLE = [
-  { elementType: "geometry", stylers: [{ color: "#1a1c1e" }] },
-  { elementType: "labels.text.stroke", stylers: [{ color: "#1a1c1e" }] },
-  { elementType: "labels.text.fill", stylers: [{ color: "#94a3b8" }] },
-  {
-    featureType: "administrative.locality",
-    elementType: "labels.text.fill",
-    stylers: [{ color: "#cbd5e1" }],
-  },
-  {
-    featureType: "poi",
-    elementType: "labels.text.fill",
-    stylers: [{ color: "#475569" }],
-  },
-  {
-    featureType: "poi.park",
-    elementType: "geometry",
-    stylers: [{ color: "#132b26" }],
-  },
-  {
-    featureType: "road",
-    elementType: "geometry",
-    stylers: [{ color: "#334155" }],
-  },
-  {
-    featureType: "road",
-    elementType: "geometry.stroke",
-    stylers: [{ color: "#1e293b" }],
-  },
-  {
-    featureType: "road.highway",
-    elementType: "geometry",
-    stylers: [{ color: "#475569" }],
-  },
-  {
-    featureType: "road.highway",
-    elementType: "geometry.stroke",
-    stylers: [{ color: "#0f172a" }],
-  },
-  {
-    featureType: "water",
-    elementType: "geometry",
-    stylers: [{ color: "#0f172a" }],
-  },
-  {
-    featureType: "water",
-    elementType: "labels.text.fill",
-    stylers: [{ color: "#475569" }],
-  },
-];
-
-function Directions({
-  origin,
-  destination,
-  onRouteChanged
-}: {
-  origin: google.maps.LatLngLiteral,
-  destination: google.maps.LatLngLiteral,
-  onRouteChanged?: (res: google.maps.DirectionsResult) => void
-}) {
-  const map = useMap();
-  const onRouteChangedRef = useLatest(onRouteChanged);
-  const routesLibrary = useMapsLibrary('routes');
-  const [directionsService, setDirectionsService] = useState<google.maps.DirectionsService>();
-  const [directionsRenderer, setDirectionsRenderer] = useState<google.maps.DirectionsRenderer>();
-
-  // Initialize services
-  useEffect(() => {
-    if (!routesLibrary || !map) return;
-    setDirectionsService(new routesLibrary.DirectionsService());
-    setDirectionsRenderer(new routesLibrary.DirectionsRenderer({
-      map,
-      suppressMarkers: true,
-      polylineOptions: {
-        strokeColor: '#10b981',
-        strokeWeight: 4,
-        strokeOpacity: 0.9,
-      }
-    }));
-  }, [routesLibrary, map]);
-
-  // Calculate Route
-  useEffect(() => {
-    if (!directionsService || !directionsRenderer || !origin || !destination) return;
-
-    // cleanup previous route
-    directionsRenderer.setMap(map);
-
-    directionsService.route({
-      origin,
-      destination,
-      travelMode: google.maps.TravelMode.DRIVING,
-      provideRouteAlternatives: true,
-      drivingOptions: {
-        departureTime: new Date(),
-        trafficModel: google.maps.TrafficModel.BEST_GUESS
-      }
-    }).then(response => {
-      directionsRenderer.setDirections(response);
-      onRouteChangedRef.current?.(response);
-    }).catch(err => {
-      console.error("Directions request failed", err);
-    });
-
-    return () => {
-      // Optional: clear directions when unmounting or changing specific dependencies if needed.
-      // directionsRenderer.setDirections({ routes: [] }); 
-    }
-
-  }, [directionsService, directionsRenderer, origin, destination, map, onRouteChangedRef]);
-
-  return null;
-}
-
-function SimulationHUD({
-  metrics,
-  origin,
-  destination,
-  stations
-}: {
-  metrics: { speed: number, efficiency: number, milesRemaining: number, currentSoC: number, progress: number },
-  origin: string,
-  destination: string,
-  stations: Station[]
-}) {
-  const nextStation = stations.find((_, i) => (i / stations.length) > metrics.progress) || stations[stations.length - 1];
-
-  return (
-    <div className="absolute inset-0 pointer-events-none z-30">
-      {/* Top Narrative Bar */}
-      <div className="absolute top-6 left-1/2 -translate-x-1/2 w-full max-w-2xl px-6">
-        <div className="glass-card bg-midnight/80 backdrop-blur-xl border-white/10 p-3 md:p-4 rounded-3xl shadow-2xl flex items-center justify-between">
-          <div className="flex items-center gap-4 flex-1">
-            <div className="flex flex-col">
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Origin</span>
-              <span className="text-xs font-bold text-white truncate max-w-[120px]">{origin.split(',')[0]}</span>
-            </div>
-
-            <div className="flex-1 h-1.5 bg-white/10 rounded-full relative overflow-hidden">
-              <div
-                className="absolute inset-y-0 left-0 bg-neon-blue shadow-[0_0_10px_rgba(0,210,255,1)] transition-all duration-300"
-                style={{ width: `${metrics.progress * 100}%` }}
-              />
-              {/* Stops on timeline */}
-              {stations.map((station, i) => (
-                <div
-                  key={i}
-                  className="absolute w-2 h-2 rounded-full bg-white/30 border border-white/10 -translate-y-1/4"
-                  style={{ left: `${((i + 1) / (stations.length + 1)) * 100}%` }}
-                  title={station.title}
-                />
-              ))}
-            </div>
-
-            <div className="flex flex-col text-right">
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Destination</span>
-              <span className="text-xs font-bold text-white truncate max-w-[120px]">{destination.split(',')[0]}</span>
-            </div>
-          </div>
-
-          <div className="ml-8 pl-8 border-l border-white/10 flex items-center gap-4">
-            <div className="text-center">
-              <div className="text-[10px] font-bold text-gray-400 uppercase">Battery</div>
-              <div className="text-sm font-bold text-neon-green">{Math.round(metrics.currentSoC)}%</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Stop Progress Overlay (Bottom Left) */}
-      <div className="absolute bottom-32 left-8 w-64 animate-in slide-in-from-left duration-500">
-        <div className="glass-card bg-midnight/80 backdrop-blur-xl border border-white/10 rounded-2xl p-3 md:p-4 shadow-2xl overflow-hidden group">
-          <div className="absolute top-0 right-0 p-2 opacity-20">
-            <Zap className="w-12 h-12 text-neon-blue" />
-          </div>
-          <div className="relative z-10">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[10px] font-black text-neon-blue uppercase tracking-widest">Next Stop</span>
-              <div className="flex items-center gap-1.5">
-                <div className="w-1.5 h-1.5 rounded-full bg-neon-green animate-pulse" />
-                <span className="text-[9px] font-bold text-gray-400 uppercase">En Route</span>
-              </div>
-            </div>
-
-            <h4 className="text-sm font-bold text-white mb-1 truncate">{nextStation?.title || 'Destination'}</h4>
-            <div className="flex items-end gap-2 mb-3">
-              <span className="text-2xl font-black text-white italic">
-                {Math.max(1, Math.round(metrics.milesRemaining * 0.4))}
-              </span>
-              <span className="text-[10px] font-bold text-gray-400 mb-1.5 uppercase">Miles to Stop</span>
-            </div>
-
-            <div className="space-y-1.5">
-              <div className="flex justify-between text-[9px] font-bold">
-                <span className="text-gray-400 uppercase">Distance Progress</span>
-                <span className="text-neon-blue">{Math.round((metrics.progress % 0.3) / 0.3 * 100)}%</span>
-              </div>
-              <div className="h-1 bg-white/5 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-neon-blue to-neon-purple shadow-[0_0_8px_rgba(0,210,255,0.4)] transition-all duration-1000"
-                  style={{ width: `${(metrics.progress % 0.3) / 0.3 * 100}%` }}
-                />
-              </div>
-            </div>
-
-            <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Activity className="w-3 h-3 text-neon-blue" />
-                <span className="text-[10px] font-bold text-white">ETA: {Math.round(metrics.milesRemaining * 0.45)}m</span>
-              </div>
-              <div className="text-[9px] font-black text-neon-green uppercase italic">Optimal Speed</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Side Telemetry Sidebar */}
-      <div className="absolute left-6 top-1/2 -translate-y-1/2 space-y-4">
-        <div className="glass-card bg-midnight/60 backdrop-blur-md border-white/5 p-3 md:p-4 rounded-2xl w-28 md:w-32 space-y-4 shadow-xl">
-          <div>
-            <div className="text-[9px] font-bold text-gray-400 uppercase mb-1 flex items-center gap-1">
-              <Activity className="w-3 h-3 text-neon-blue" /> Speed
-            </div>
-            <div className="text-xl font-black text-white italic">
-              {metrics.speed}<span className="text-[10px] font-normal ml-1 not-italic opacity-40">MPH</span>
-            </div>
-          </div>
-
-          <div>
-            <div className="text-[9px] font-bold text-gray-400 uppercase mb-1 flex items-center gap-1">
-              <Zap className="w-3 h-3 text-yellow-400" /> Efficiency
-            </div>
-            <div className="text-sm font-bold text-white">
-              {metrics.efficiency.toFixed(2)}<span className="text-[8px] font-normal ml-1 opacity-40">kWh/mi</span>
-            </div>
-          </div>
-
-          <div className="pt-2 border-t border-white/5">
-            <div className="text-[9px] font-bold text-gray-400 uppercase mb-0.5">Remaining</div>
-            <div className="text-xs font-bold text-white">{Math.round(metrics.milesRemaining)} miles</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function UserLocationMarker() {
-  const [position, setPosition] = useState<google.maps.LatLngLiteral | null>(null);
-
-  useEffect(() => {
-    if ('geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => setPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        (err) => console.error("Could not get user location", err)
-      );
-    }
-  }, []);
-
-  if (!position) return null;
-
-  return (
-    <AdvancedMarker position={position} zIndex={100}>
-      <div className="relative flex items-center justify-center">
-        <div className="absolute w-8 h-8 bg-blue-500/20 rounded-full animate-ping" />
-        <div className="w-4 h-4 bg-white rounded-full border-4 border-blue-500 shadow-xl" />
-      </div>
-    </AdvancedMarker>
-  );
-}
-
-
-
-function MapTooltip({
-  content,
-  position
-}: {
-  content: string | React.ReactNode,
-  position: { x: number, y: number } | null
-}) {
-  if (!position) return null;
-  return (
-    <div
-      className="fixed pointer-events-none z-[100] px-3 py-2 bg-midnight/90 backdrop-blur-md border border-white/10 rounded-xl shadow-2xl transition-opacity animate-in fade-in zoom-in duration-200"
-      style={{
-        left: position.x + 15,
-        top: position.y - 15,
-      }}
-    >
-      <div className="text-[11px] font-bold text-white whitespace-nowrap">
-        {content}
-      </div>
-    </div>
-  );
-}
-
-function MapLegend({ onClose }: { onClose: () => void }) {
-  const legendItems = [
-    { icon: <div className="w-3 h-3 rounded-full bg-green-500" />, label: 'Origin' },
-    { icon: <div className="w-3 h-3 rounded-full bg-red-500" />, label: 'Destination' },
-    { icon: <div className="w-3 h-3 rounded-full bg-yellow-500" />, label: 'Charging Stop' },
-    { icon: <div className="w-8 h-1 bg-green-500 rounded-full" />, label: 'Active Route' },
-    { icon: <div className="w-8 h-1 bg-gray-400 rounded-full" />, label: 'Alternative Route' },
-    { icon: <div className="w-8 h-1 bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)] rounded-full" />, label: 'Heavy Traffic' },
-  ];
-
-  return (
-    <div className="absolute top-24 left-1/2 -translate-x-1/2 glass-card bg-midnight/80 backdrop-blur-xl border-white/10 p-5 rounded-3xl shadow-2xl w-64 z-20 animate-in slide-in-from-top duration-300">
-      <div className="flex items-center justify-between mb-4">
-        <h4 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">
-          <Info className="w-4 h-4 text-neon-blue" /> Map Legend
-        </h4>
-        <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
-          <X className="w-4 h-4" />
-        </button>
-      </div>
-      <div className="space-y-3">
-        {legendItems.map((item, i) => (
-          <div key={i} className="flex items-center gap-4">
-            <div className="w-8 flex justify-center">
-              {item.icon}
-            </div>
-            <span className="text-[11px] font-medium text-gray-300">{item.label}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function TrafficLayer({ show }: { show: boolean }) {
-  const map = useMap();
-  const mapsLibrary = useMapsLibrary('maps');
-  const [trafficLayer, setTrafficLayer] = useState<google.maps.TrafficLayer>();
-
-  useEffect(() => {
-    if (!mapsLibrary || !map) return;
-    const layer = new mapsLibrary.TrafficLayer();
-    setTrafficLayer(layer);
-
-    return () => {
-      layer.setMap(null);
-    };
-  }, [mapsLibrary, map]);
-
-  useEffect(() => {
-    if (trafficLayer) {
-      trafficLayer.setMap(show ? map : null);
-    }
-  }, [trafficLayer, show, map]);
-
-  return null;
-}
-
-function FlyoverController({
-  routeGeometry,
-  isPlaying,
-  speedMultiplier = 1,
-  onMetricsUpdate,
-  onStop,
-  totalDistance = 150
-}: {
-  routeGeometry: [number, number][],
-  isPlaying: boolean,
-  speedMultiplier?: number,
-  onMetricsUpdate?: (metrics: { speed: number, efficiency: number, milesRemaining: number, currentSoC: number, progress: number }) => void,
-  onStop: () => void,
-  totalDistance?: number
-}) {
-  const map = useMap();
-  const onMetricsUpdateRef = useLatest(onMetricsUpdate);
-  const totalDistanceRef = useLatest(totalDistance);
-
-  useEffect(() => {
-    if (!map || !isPlaying || !routeGeometry || routeGeometry.length < 2) return;
-
-    let startTime: number | null = null;
-    const baseDuration = 30000; // 30 seconds base for full route
-    const duration = baseDuration / speedMultiplier;
-    let animationFrameId: number;
-
-    const animate = (timestamp: number) => {
-      if (!startTime) startTime = timestamp;
-      const progress = (timestamp - startTime) / duration;
-
-      if (progress >= 1) {
-        onStop();
-        return;
-      }
-
-      // Calculate current position index
-      const totalPoints = routeGeometry.length;
-      const currentIndex = Math.floor(progress * (totalPoints - 1));
-      const nextIndex = Math.min(currentIndex + 1, totalPoints - 1);
-
-      const p1 = routeGeometry[currentIndex];
-      const p2 = routeGeometry[nextIndex];
-
-      const segmentProgress = (progress * (totalPoints - 1)) - currentIndex;
-      const lat = p1[0] + (p2[0] - p1[0]) * segmentProgress;
-      const lng = p1[1] + (p2[1] - p1[1]) * segmentProgress;
-
-      const dy = p2[0] - p1[0];
-      const dx = Math.cos(Math.PI / 180 * p1[0]) * (p2[1] - p1[1]);
-      const angle = Math.atan2(dy, dx);
-      let heading = angle * 180 / Math.PI;
-      heading = 90 - heading;
-
-      map.moveCamera({
-        center: { lat, lng },
-        zoom: 17,
-        tilt: 65,
-        heading: heading
-      });
-
-      // Update Simulated Metrics
-      if (onMetricsUpdateRef.current) {
-        onMetricsUpdateRef.current({
-          speed: Math.round(65 + Math.random() * 5),
-          efficiency: 0.25 + Math.random() * 0.1,
-          milesRemaining: Math.max(0, Math.round((1 - progress) * totalDistanceRef.current)),
-          currentSoC: Math.max(15, 80 - progress * 65), // Starts at 80, drops to 15
-          progress
-        });
-      }
-
-      animationFrameId = requestAnimationFrame(animate);
-    };
-
-    animationFrameId = requestAnimationFrame(animate);
-
-    return () => {
-      cancelAnimationFrame(animationFrameId);
-    };
-  }, [map, isPlaying, routeGeometry, speedMultiplier, onStop, onMetricsUpdateRef, totalDistanceRef]);
-
-  return null;
-}
-
-function Map3DController({ tilt, heading }: { tilt: number, heading: number }) {
-  const map = useMap();
-  useEffect(() => {
-    if (map) {
-      map.moveCamera({ tilt, heading });
-    }
-  }, [map, tilt, heading]);
-  return null;
-}
-
-interface RouteSegment {
-  id: string;
-  points: [number, number][];
-  distance: number;
-  duration: number;
-  startLabel: string;
-  endLabel: string;
-  efficiency: number;
-  weather: string;
-  startSoC: number;
-  endSoC: number;
-  trafficLevel?: 'low' | 'moderate' | 'heavy';
-  speedLimit?: number;
-}
-
-function WeatherOverlay({
-  geometry
-}: {
-  geometry: [number, number][]
-}) {
-  const map = useMap();
-  const maps = useMapsLibrary('maps');
-  const [envData, setEnvData] = useState<RouteEnvData | null>(null);
-
-  useEffect(() => {
-    if (geometry.length > 0) {
-      setEnvData(getRouteEnvData(geometry));
-    }
-  }, [geometry]);
-
-  useEffect(() => {
-    if (!map || !maps || !envData) return;
-
-    // 1. Temperature Gradient Polylines
-    // Break geometry into small chunks for gradient effect
-    const polylines: google.maps.Polyline[] = [];
-    const chunkSize = 5;
-
-    for (let i = 0; i < envData.points.length - 1; i += chunkSize) {
-      const chunk = envData.points.slice(i, i + chunkSize + 1);
-      const avgTemp = chunk.reduce((acc, p) => acc + p.temp, 0) / chunk.length;
-
-      // Interpolate color: Blue (32F) -> Yellow (70F) -> Red (100F)
-      let color = '#3b82f6'; // blue
-      if (avgTemp > 80) color = '#ef4444'; // red
-      else if (avgTemp > 65) color = '#eab308'; // yellow
-
-      const polyline = new google.maps.Polyline({
-        path: chunk.map(p => ({ lat: p.lat, lng: p.lng })),
-        strokeColor: color,
-        strokeOpacity: 0.6,
-        strokeWeight: 6,
-        map,
-        zIndex: 1
-      });
-      polylines.push(polyline);
-    }
-
-    return () => {
-      polylines.forEach(p => p.setMap(null));
-    };
-  }, [map, maps, envData]);
-
-  if (!envData) return null;
-
-  return (
-    <>
-      {/* 2. AQI Zones */}
-      {envData.aqiZones.map((zone, i) => (
-        <Circle
-          key={`aqi-${i}`}
-          center={{ lat: zone.lat, lng: zone.lng }}
-          radius={zone.radius}
-          fillColor={zone.aqi > 100 ? '#ef4444' : '#eab308'}
-          fillOpacity={0.2}
-          strokeColor={zone.aqi > 100 ? '#ef4444' : '#eab308'}
-          strokeOpacity={0.5}
-          strokeWeight={2}
-        />
-      ))}
-
-      {/* 3. Precipitation & Weather Warnings */}
-      {envData.weatherWarnings.map((warning, i) => (
-        <AdvancedMarker
-          key={`weather-warn-${i}`}
-          position={{ lat: warning.lat, lng: warning.lng }}
-          zIndex={20}
-        >
-          <div className="flex flex-col items-center">
-            <div className="bg-white/90 backdrop-blur-md p-2 rounded-2xl shadow-xl border border-blue-100 animate-bounce">
-              {warning.type === 'rain' ?
-                <CloudRain className="w-6 h-6 text-blue-500" /> :
-                <Snowflake className="w-6 h-6 text-indigo-400" />
-              }
-            </div>
-            <div className="mt-2 bg-blue-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap">
-              {warning.message}
-            </div>
-          </div>
-        </AdvancedMarker>
-      ))}
-    </>
-  );
-}
-
-function MultiRouteDisplay({
-  routes,
-  activeRouteId,
-  onSelect,
-  onHover
-}: {
-  routes: RouteWithGeom[],
-  activeRouteId: string,
-  onSelect?: (route: RouteWithGeom) => void,
-  onHover?: (route: RouteWithGeom | null, event?: google.maps.MapMouseEvent) => void
-}) {
-  const map = useMap();
-  const maps = useMapsLibrary('maps');
-
-  useEffect(() => {
-    if (!map || !maps || !routes) return;
-
-    const polylines: google.maps.Polyline[] = [];
-
-    routes.forEach((route) => {
-      if (!route.geometry) return;
-
-      const isActive = route.id === activeRouteId;
-      const path = route.geometry.map(p => ({ lat: p[0], lng: p[1] }));
-
-      // Determine semantic color
-      let color = '#94a3b8'; // default grey
-      if (route.type === 'fastest') color = '#10b981'; // green
-      if (route.type === 'efficient') color = '#0ea5e9'; // blue
-
-      const polyline = new google.maps.Polyline({
-        path,
-        strokeColor: color,
-        strokeOpacity: isActive ? 1.0 : 0.5,
-        strokeWeight: isActive ? 5 : 3,
-        map,
-        zIndex: isActive ? 10 : 5,
-        clickable: true
-      });
-
-      polyline.addListener('click', () => {
-        if (onSelect) onSelect(route);
-      });
-
-      polyline.addListener('mouseover', (e: google.maps.MapMouseEvent) => {
-        if (!isActive) polyline.setOptions({ strokeOpacity: 0.8, strokeWeight: 4 });
-        if (onHover) onHover(route, e);
-      });
-
-      polyline.addListener('mouseout', () => {
-        if (!isActive) polyline.setOptions({ strokeOpacity: 0.5, strokeWeight: 3 });
-        if (onHover) onHover(null);
-      });
-
-      polylines.push(polyline);
-      // Removed inline info window markers logic
-    });
-
-    return () => {
-      polylines.forEach(p => p.setMap(null));
-    };
-  }, [map, maps, routes, activeRouteId, onSelect, onHover]);
-
-  return null;
-}
-
-function RouteSegments({
-  segments,
-  hoveredIndex,
-  onHoverSegment,
-  onSelectSegment
-}: {
-  segments: RouteSegment[],
-  hoveredIndex?: number | null,
-  onHoverSegment?: (index: number | null) => void,
-  onSelectSegment?: (segment: RouteSegment) => void
-}) {
-  const map = useMap();
-  const maps = useMapsLibrary('maps');
-
-  useEffect(() => {
-    if (!map || !maps || !segments || segments.length === 0) return;
-
-    const polylines: google.maps.Polyline[] = [];
-    const segmentsWithIcons: google.maps.InfoWindow[] = [];
-
-    segments.forEach((segment, i) => {
-      const isHovered = hoveredIndex === i;
-
-      // Traffic colors
-      let strokeColor = '#10b981'; // default green (low)
-      if (segment.trafficLevel === 'moderate') strokeColor = '#eab308'; // yellow
-      if (segment.trafficLevel === 'heavy') strokeColor = '#ef4444'; // red
-
-      const polyline = new google.maps.Polyline({
-        path: segment.points.map(p => ({ lat: p[0], lng: p[1] })),
-        strokeColor: isHovered ? '#00d2ff' : strokeColor,
-        strokeOpacity: isHovered ? 1.0 : 0.8,
-        strokeWeight: isHovered ? 12 : 8,
-        map,
-        zIndex: isHovered ? 10 : 5
-      });
-
-      polyline.addListener('mouseover', () => {
-        polyline.setOptions({ strokeColor: '#00d2ff', strokeWeight: 12, strokeOpacity: 1 });
-        if (onHoverSegment) onHoverSegment(i);
-      });
-
-      polyline.addListener('mouseout', () => {
-        if (!isHovered) {
-          // Restore this segment's own traffic color (not always green)
-          polyline.setOptions({ strokeColor, strokeWeight: 8, strokeOpacity: 0.8 });
-        }
-        if (onHoverSegment) onHoverSegment(null);
-      });
-
-      polyline.addListener('click', () => {
-        if (onSelectSegment) onSelectSegment(segment);
-      });
-
-      polylines.push(polyline);
-
-      // Add Weather/Traffic Icon at Segment Midpoint if severe
-      if (segment.trafficLevel === 'heavy' || segment.weather !== 'Clear') {
-        const midPointIdx = Math.floor(segment.points.length / 2);
-        const midPoint = segment.points[midPointIdx];
-
-        const content = document.createElement('div');
-        content.className = 'flex flex-col items-center animate-bounce-slow pointer-events-none';
-
-        let iconHtml = '';
-        if (segment.trafficLevel === 'heavy') iconHtml = '🚗';
-        else if (segment.weather.includes('Rain')) iconHtml = '🌧️';
-        else if (segment.weather.includes('Snow')) iconHtml = '❄️';
-        else iconHtml = '🌤️';
-
-        content.innerHTML = `<div class="bg-midnight/80 backdrop-blur-md p-1.5 rounded-full border border-white/20 shadow-xl text-xs">${iconHtml}</div>`;
-
-        const infoWindow = new google.maps.InfoWindow({
-          position: { lat: midPoint[0], lng: midPoint[1] },
-          content: content,
-          disableAutoPan: true,
-          headerDisabled: true
-        });
-
-        infoWindow.open(map);
-        segmentsWithIcons.push(infoWindow);
-      }
-    });
-
-    return () => {
-      polylines.forEach(s => s.setMap(null));
-      segmentsWithIcons.forEach(iw => iw.close());
-    };
-  }, [map, maps, segments, hoveredIndex, onHoverSegment, onSelectSegment]);
-
-  return null;
 }
 
 export default function RouteMap({
@@ -1060,50 +243,41 @@ export default function RouteMap({
   const end = destinationCoords ? { lat: destinationCoords[0], lng: destinationCoords[1] } : { lat: 34.0522, lng: -118.2437 };
   const center = { lat: (start.lat + end.lat) / 2, lng: (start.lng + end.lng) / 2 };
 
-  // Simple Clustering Logic
-  const clusters = useMemo((): ClusterItem[] => {
-    if (zoom > 13) return stations.map(s => ({ type: 'single', station: s, lat: s.latitude, lng: s.longitude }));
+  const clusters = useMemo(() => clusterStations(stations, zoom), [stations, zoom]);
 
-    const result: ClusterItem[] = [];
-    const usedIndices = new Set<number>();
-    const distanceThreshold = 0.05 * (15 - zoom); // Rough degree-based threshold
+  // Google calls window.gm_authFailure when the key is invalid or not allowed
+  // for this domain; show our own message instead of Google's error popups.
+  const [mapAuthFailed, setMapAuthFailed] = useState(false);
+  useEffect(() => {
+    const w = window as unknown as { gm_authFailure?: () => void };
+    const previous = w.gm_authFailure;
+    w.gm_authFailure = () => {
+      setMapAuthFailed(true);
+      previous?.();
+    };
+    return () => {
+      w.gm_authFailure = previous;
+    };
+  }, []);
 
-    stations.forEach((s, i) => {
-      if (usedIndices.has(i)) return;
-
-      const cluster = [s];
-      usedIndices.add(i);
-
-      for (let j = i + 1; j < stations.length; j++) {
-        if (usedIndices.has(j)) continue;
-        const other = stations[j];
-        const dist = Math.sqrt(Math.pow(s.latitude - other.latitude, 2) + Math.pow(s.longitude - other.longitude, 2));
-        if (dist < distanceThreshold) {
-          cluster.push(other);
-          usedIndices.add(j);
-        }
-      }
-
-      if (cluster.length > 1) {
-        const avgLat = cluster.reduce((sum, s) => sum + s.latitude, 0) / cluster.length;
-        const avgLng = cluster.reduce((sum, s) => sum + s.longitude, 0) / cluster.length;
-        result.push({ type: 'cluster', stations: cluster, lat: avgLat, lng: avgLng });
-      } else {
-        result.push({ type: 'single', station: s, lat: s.latitude, lng: s.longitude });
-      }
-    });
-
-    return result;
-  }, [stations, zoom]);
+  if (!apiKey || mapAuthFailed) {
+    return (
+      <MapUnavailable
+        reason={apiKey ? 'invalid-key' : 'missing-key'}
+        origin={origin}
+        destination={destination}
+        stationCount={stations.length}
+      />
+    );
+  }
 
   return (
     <div
       ref={mapContainerRef}
-      className={`bg-white rounded-xl shadow-lg overflow-hidden flex flex-col relative group transition-all duration-500 ${isFullscreen ? 'fixed inset-0 z-[100] h-screen w-screen rounded-none' : 'h-[450px] md:h-[600px]'
+      className={`bg-surface rounded-xl shadow-lg overflow-hidden flex flex-col relative group transition-all duration-500 ${isFullscreen ? 'fixed inset-0 z-[100] h-screen w-screen rounded-none' : 'h-full'
         }`}
     >
       {/* Header */}
-
 
       <div className="flex-1 relative map-mask-edges">
         <APIProvider apiKey={apiKey}>
@@ -1587,42 +761,42 @@ export default function RouteMap({
 
           {/* Map Controls */}
           {/* Map Controls - Floating Dock */}
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-surface-highlight/90 backdrop-blur-xl p-1.5 rounded-full border border-white/10 shadow-2xl z-20">
+          <div role="toolbar" aria-label="Map controls" className="absolute bottom-3 sm:bottom-6 left-1/2 -translate-x-1/2 max-w-[calc(100%-1.5rem)] overflow-x-auto [scrollbar-width:none] flex items-center gap-1 bg-surface-highlight/90 backdrop-blur-xl p-1.5 rounded-full border border-white/10 shadow-2xl z-20">
             <button
               onClick={() => setShowWeather(!showWeather)}
-              className={`p-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95
+              className={`shrink-0 p-2.5 sm:p-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95
                     ${showWeather ? 'bg-blue-500/20 text-blue-400' : 'text-gray-400 hover:text-white hover:bg-white/10'}
                   `}
-              title="Weather & Env Overlay"
+              title="Weather & Env Overlay" aria-label="Weather & Env Overlay"
             >
               <CloudSun className="w-5 h-5" />
             </button>
 
             <button
               onClick={() => setShowTraffic(!showTraffic)}
-              className={`p-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95
+              className={`shrink-0 p-2.5 sm:p-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95
                     ${showTraffic ? 'bg-red-500/20 text-red-400' : 'text-gray-400 hover:text-white hover:bg-white/10'}
                   `}
-              title="Traffic"
+              title="Traffic" aria-label="Traffic"
             >
               <Navigation className="w-5 h-5" />
             </button>
-            <div className="w-px h-6 bg-white/10 mx-1"></div>
+            <div className="shrink-0 w-px h-6 bg-white/10 mx-1"></div>
 
             <button
               onClick={() => setMapType(mapType === 'roadmap' ? 'hybrid' : 'roadmap')}
-              className={`p-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95
+              className={`shrink-0 p-2.5 sm:p-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95
                     ${mapType === 'hybrid' ? 'bg-blue-500/20 text-blue-400' : 'text-gray-400 hover:text-white hover:bg-white/10'}
                    `}
-              title="Satellite"
+              title="Satellite" aria-label="Satellite"
             >
               <Layers className="w-5 h-5" />
             </button>
 
             <button
               onClick={fitRouteBounds}
-              className="p-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95 text-gray-400 hover:text-white hover:bg-white/10"
-              title="Fit Route to Map"
+              className="shrink-0 p-2.5 sm:p-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95 text-gray-400 hover:text-white hover:bg-white/10"
+              title="Fit Route to Map" aria-label="Fit Route to Map"
             >
               <ArrowRightLeft className="w-5 h-5 rotate-90" />
             </button>
@@ -1632,56 +806,56 @@ export default function RouteMap({
                 setTilt(tilt === 0 ? 45 : 0);
                 setHeading(heading === 0 ? 90 : 0);
               }}
-              className={`p-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95
+              className={`shrink-0 p-2.5 sm:p-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95
                     ${tilt > 0 ? 'bg-purple-500/20 text-neon-purple' : 'text-gray-400 hover:text-white hover:bg-white/10'}
                   `}
-              title="3D Mode"
+              title="3D Mode" aria-label="3D Mode"
             >
               <Mountain className="w-5 h-5" />
             </button>
 
-            <div className="w-px h-6 bg-white/10 mx-1"></div>
+            <div className="shrink-0 w-px h-6 bg-white/10 mx-1"></div>
 
             <button
               onClick={() => setShowLegend(!showLegend)}
-              className={`p-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95
+              className={`shrink-0 p-2.5 sm:p-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95
                     ${showLegend ? 'bg-neon-blue/20 text-neon-blue' : 'text-gray-400 hover:text-white hover:bg-white/10'}
                   `}
-              title="Map Legend"
+              title="Map Legend" aria-label="Map Legend"
             >
               <Info className="w-5 h-5" />
             </button>
 
             <button
               onClick={() => setIsMeasuring(!isMeasuring)}
-              className={`p-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95
+              className={`shrink-0 p-2.5 sm:p-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95
                     ${isMeasuring ? 'bg-yellow-500/20 text-yellow-400' : 'text-gray-400 hover:text-white hover:bg-white/10'}
                   `}
-              title="Measure Distance"
+              title="Measure Distance" aria-label="Measure Distance"
             >
               <Activity className="w-5 h-5" />
             </button>
 
             <button
               onClick={toggleFullscreen}
-              className={`p-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95 text-gray-400 hover:text-white hover:bg-white/10`}
-              title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+              className={`shrink-0 p-2.5 sm:p-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95 text-gray-400 hover:text-white hover:bg-white/10`}
+              title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"} aria-label={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
             >
               {isFullscreen ? <X className="w-5 h-5" /> : <Layers className="w-5 h-5 rotate-45" />}
             </button>
 
             <button
               onClick={() => setIsFlying(!isFlying)}
-              className={`p-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95
+              className={`shrink-0 p-2.5 sm:p-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95
                     ${isFlying ? 'bg-neon-green text-surface' : 'bg-white text-surface hover:bg-white/90'}
                   `}
-              title={isFlying ? "Pause" : "Flyover"}
+              title={isFlying ? "Pause" : "Flyover"} aria-label={isFlying ? "Pause" : "Flyover"}
             >
               {isFlying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current" />}
             </button>
 
             {isFlying && (
-              <div className="flex bg-white/5 rounded-full p-1 ml-1 border border-white/10">
+              <div className="shrink-0 flex bg-white/5 rounded-full p-1 ml-1 border border-white/10">
                 {([1, 2, 4] as const).map((speed) => (
                   <button
                     key={speed}
@@ -1704,11 +878,11 @@ export default function RouteMap({
                     Cached
                   </div>
                 )}
-                <div className="w-px h-6 bg-white/10 mx-1"></div>
+                <div className="shrink-0 w-px h-6 bg-white/10 mx-1"></div>
                 <button
                   onClick={onFindNearby}
-                  className="p-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95 bg-neon-purple/20 text-neon-purple hover:bg-neon-purple/30"
-                  title="Find Nearby Chargers"
+                  className="shrink-0 p-2.5 sm:p-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95 bg-neon-purple/20 text-neon-purple hover:bg-neon-purple/30"
+                  title="Find Nearby Chargers" aria-label="Find Nearby Chargers"
                 >
                   <Zap className="w-5 h-5 fill-current" />
                 </button>
@@ -1729,3 +903,5 @@ export default function RouteMap({
     </div >
   );
 }
+
+export type { Station, RouteWithGeom } from './route-map/types';
