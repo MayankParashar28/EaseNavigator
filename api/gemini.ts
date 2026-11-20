@@ -1,14 +1,20 @@
 // Server-side proxy for Google Gemini so the API key never ships to the browser.
 // The client POSTs a generateContent request body to /api/gemini.
 import { json, serverEnv } from './_env';
+import { guard } from './_guard';
 
 export const config = { runtime: 'edge' };
+
+const GEMINI_REQUESTS_PER_MINUTE = 30;
 
 const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 const MAX_BODY_BYTES = 64 * 1024;
 
 export default async function handler(request: Request): Promise<Response> {
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
+
+  const blocked = await guard(request, 'gemini', GEMINI_REQUESTS_PER_MINUTE);
+  if (blocked) return blocked;
 
   const key = serverEnv('GEMINI_API_KEY');
   if (!key) return json({ error: 'AI is not configured' }, 503);

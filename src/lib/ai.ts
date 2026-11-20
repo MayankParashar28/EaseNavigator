@@ -522,11 +522,11 @@ export function calculateTripMetrics(
   const equivalentTrees = Math.max(1, Math.round(co2Saved / 20));
 
   // Fuel Cost Savings:
-  // Gas: 25 mpg @ .50/gal -> /bin/zsh.14/mile
-  // EV: 3.5 miles/kWh @ /bin/zsh.15/kWh -> /bin/zsh.04/mile
+  // Gas: 25 mpg @ $3.50/gal -> $0.14/mile
+  // EV: ~0.25 kWh/mile @ $0.15/kWh -> ~$0.04/mile
   // Use model efficiency if available, otherwise heuristic.
   const gasCost = route.distance * 0.14;
-  const evCost = route.distance * (evModel.efficiency_kwh_per_mile * 0.15); // Assume /bin/zsh.15/kWh
+  const evCost = route.distance * (evModel.efficiency_kwh_per_mile * 0.15); // Assume $0.15/kWh
   const fuelCostSaved = Number(Math.max(0, gasCost - evCost).toFixed(2));
 
   // Calculate average speed if duration is available
