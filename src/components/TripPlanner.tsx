@@ -10,6 +10,7 @@ import TripHistory from './TripHistory';
 import NeuralAssistant from './NeuralAssistant';
 import type { ParsedTripCommand } from '../lib/ai';
 import { chargingStationService } from "../lib/chargingStations";
+import { fetchDrivingRoutes, geocode } from '../lib/openData';
 import { weatherService } from "../lib/weatherService";
 import LocationAutocomplete from './LocationAutocomplete';
 import { ArrowUpDown } from 'lucide-react';
@@ -172,6 +173,13 @@ export default function TripPlanner({ onSignOut }: TripPlannerProps) {
                 origin: (first.formatted_address as string) || `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
                 useCurrentLocation: true,
               }));
+            } else {
+              // No address found (or reverse geocoding unavailable): use coordinates
+              setFormData(prev => ({
+                ...prev,
+                origin: `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
+                useCurrentLocation: true,
+              }));
             }
           } catch {
             setFormData(prev => ({
@@ -228,36 +236,15 @@ export default function TripPlanner({ onSignOut }: TripPlannerProps) {
         throw new Error('Please select an EV model');
       }
 
-      // Geocode origin and destination using Nominatim
-      const geocode = async (q: string) => {
-        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}`;
-        const res = await fetch(url, {
-          headers: {
-            'Accept': 'application/json',
-          },
-        });
-        if (!res.ok) throw new Error('Failed to geocode address');
-        const data: unknown = await res.json();
-        if (!Array.isArray(data) || data.length === 0) throw new Error('No results for address');
-        const first = data[0] as Record<string, unknown>;
-        return { lat: parseFloat(String(first.lat)), lon: parseFloat(String(first.lon)), display_name: String(first.display_name || q) };
-      };
+      // Geocode origin and destination (cached + throttled per Nominatim policy)
+      const originGeo = await geocode(formData.origin);
+      const destinationGeo = await geocode(formData.destination);
+      if (Math.abs(originGeo.lat - destinationGeo.lat) < 1e-4 && Math.abs(originGeo.lon - destinationGeo.lon) < 1e-4) {
+        throw new Error('Origin and destination are the same place. Pick two different locations.');
+      }
 
-      const [originGeo, destinationGeo] = await Promise.all([
-        geocode(formData.origin),
-        geocode(formData.destination),
-      ]);
-
-      // Fetch route from OSRM
-      const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${originGeo.lon},${originGeo.lat};${destinationGeo.lon},${destinationGeo.lat}?overview=full&geometries=geojson&alternatives=true`;
-      const routeRes = await fetch(osrmUrl);
-      if (!routeRes.ok) throw new Error('Failed to fetch route');
-      const routeJson: unknown = await routeRes.json();
-      const routesArray = (typeof routeJson === 'object' && routeJson !== null && 'routes' in routeJson)
-        ? ((routeJson as Record<string, unknown>).routes as unknown)
-        : undefined;
-      if (!Array.isArray(routesArray) || routesArray.length === 0) throw new Error('No route found');
-      const osrmRoutes = routesArray.slice(0, 3) as Array<{ distance: number; duration: number; geometry: { coordinates: [number, number][] } }>;
+      // Fetch up to 3 driving routes (cached)
+      const osrmRoutes = await fetchDrivingRoutes(originGeo, destinationGeo);
 
       // Transform OSRM routes into our structure
       const routes: RouteShape[] = await Promise.all(osrmRoutes.map(async (r, idx) => {
@@ -365,7 +352,10 @@ export default function TripPlanner({ onSignOut }: TripPlannerProps) {
 
     } catch (err: unknown) {
       console.error(err);
-      const message = err instanceof Error ? err.message : 'Failed to plan trip. Please try again.';
+      let message = err instanceof Error ? err.message : 'Failed to plan trip. Please try again.';
+      if (/failed to fetch|networkerror|load failed/i.test(message)) {
+        message = "We couldn't reach the map services. Check your connection and try again.";
+      }
       setError(message);
     } finally {
       setLoading(false);
